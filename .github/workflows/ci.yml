@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [ "dev" ]
+  pull_request:
+    branches: [ "dev", "main" ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip wheel setuptools
+          pip install -r backend/requirements.txt
+
+      - name: Run tests (SQLite)
+        env:
+          DATABASE_URL: sqlite+pysqlite:///./test.db
+        run: |
+          pytest -q
+
+      - name: Export OpenAPI
+        run: |
+          make openapi
+          python - << 'PY'
+          import json
+          with open('openapi.json','r') as f:
+              json.load(f)
+          print('openapi.json is valid JSON and generated successfully')
+          PY
+
+      - name: Upload OpenAPI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi.json
+          path: openapi.json
+
