@@ -12,13 +12,16 @@ SpeakSense 是一个跨平台的英语口语学习应用，支持用户通过情
 - **多模态答题**: 支持文本输入和语音录制两种答题模式
 - **智能评估**: 基于 LLM 的多维度评分（语义相关性、自然度、语法、丰富度）
 - **生词本管理**: 自动提取关键词汇，支持标记和复习
-- **多平台支持**: Web、Android、iOS、macOS、Windows、Linux
+- **实时反馈**: WebSocket 实时推送评估完成通知
+- **多平台支持**: Web、Android、iOS
 
 ## 🗂️ 文档导航
 
 | 文档 | 说明 |
 |------|------|
-| [AGENTS.md](AGENTS.md) | 项目开发计划、代码规范、里程碑进度 |
+| [AGENTS.md](AGENTS.md) | 项目开发计划、代码规范、里程碑进度、技术栈 |
+| [Flutter 开发计划](docs/flutter-development-plan.md) | Flutter 前端详细开发计划和阶段分解 |
+| [Frontend 实现细节](docs/frontend-dev-detail.md) | React 原型实现细节和组件说明 |
 | [UI 原型设计规范](docs/UI-Prototype-Design-Spec.md) | UI/UX 设计系统、页面布局、交互规范 |
 
 ## 🚀 快速开始
@@ -26,10 +29,26 @@ SpeakSense 是一个跨平台的英语口语学习应用，支持用户通过情
 ### 环境要求
 
 - Python 3.11+
-- Flutter 3.35.0+
+- Flutter 3.35.0+（需要先安装 Flutter）
 - Docker & Docker Compose（可选）
+- Node.js 18+（用于 frontend-base 原型开发）
 
-### 后端开发
+### 环境设置
+
+#### 安装 Flutter（首次使用）
+
+```bash
+# macOS 推荐：通过 Homebrew 安装
+brew install --cask flutter
+
+# 验证安装
+flutter --version
+flutter doctor
+```
+
+详细安装指南请参考：https://docs.flutter.dev/get-started/install
+
+#### 后端开发环境
 
 ```bash
 # 创建虚拟环境
@@ -39,7 +58,15 @@ source .venv/bin/activate
 # 安装依赖
 pip install -r backend/requirements.txt
 
-# 启动 API 服务
+# 复制环境变量配置
+cp backend/.env.example backend/.env
+# 编辑 backend/.env 设置必要的环境变量
+```
+
+### 后端开发
+
+```bash
+# 启动 API 服务（本地开发）
 make api
 
 # 启动 RQ Worker
@@ -47,30 +74,37 @@ make worker
 
 # 运行测试
 make test
+
+# 数据库迁移
+make migrate
+
+# 代码格式化
+make fmt
+
+# 类型检查
+make type
 ```
 
 ### 前端开发
 
+Flutter 项目正在开发中，当前提供 React 原型参考。
+
 ```bash
+# 查看前端原型（React + Vite）
+cd frontend-base
+npm install
+npm run dev
+
+# Flutter 项目（待创建）
 cd frontend
-
-# 安装依赖
 flutter pub get
-
-# 启动 Web 版本
 flutter run -d chrome
-
-# 启动 Android 版本
-flutter run -d android
-
-# 启动 iOS 版本
-flutter run -d ios
 ```
 
 ### 使用 Docker
 
 ```bash
-# 启动所有服务
+# 启动所有服务（API, Worker, Redis, DB）
 make dev
 
 # 查看日志
@@ -84,25 +118,43 @@ make dev-down
 
 ```
 speaksense/
-├── backend/           # FastAPI 后端
+├── backend/               # FastAPI 后端（待创建）
 │   ├── app/
-│   │   ├── api/      # API 路由
-│   │   ├── models/   # SQLAlchemy 模型
-│   │   ├── schemas/  # Pydantic 数据模型
-│   │   ├── services/ # 业务逻辑
-│   │   ├── jobs/     # RQ 任务
-│   │   └── core/     # 核心配置
-│   ├── tests/        # 测试文件
-│   └── alembic/     # 数据库迁移
-├── frontend/         # Flutter 前端
+│   │   ├── api/          # API 路由（auth, boards, practice, eval, vocab, ws）
+│   │   ├── services/     # 业务逻辑（llm/, asr/, eval/, boards/）
+│   │   ├── jobs/         # RQ 任务函数
+│   │   ├── models/       # SQLAlchemy ORM 模型
+│   │   ├── schemas/      # Pydantic 数据模型
+│   │   ├── db/           # 数据库会话和迁移
+│   │   ├── ws/           # WebSocket 事件
+│   │   └── core/         # 核心配置（settings, security, logging, errors）
+│   ├── tests/            # 测试文件
+│   ├── requirements.txt   # Python 依赖
+│   └── alembic/         # 数据库迁移
+├── frontend/             # Flutter 前端（待创建）
 │   ├── lib/
-│   │   ├── features/ # 功能模块
-│   │   ├── theme/    # 主题配置
-│   │   └── app/      # 应用入口
-│   └── test/         # 测试文件
-├── docs/             # 项目文档
-├── infra/            # 基础设施配置
-└── docker-compose.yml # 服务编排
+│   │   ├── app/         # 应用入口和路由
+│   │   ├── models/      # 数据模型
+│   │   ├── screens/     # 页面（Home, Practice, Evaluation, Wordbook）
+│   │   ├── widgets/     # 可复用组件
+│   │   ├── services/    # 服务层（API, WebSocket, Audio）
+│   │   └── theme/      # 主题配置
+│   └── pubspec.yaml     # Flutter 依赖
+├── frontend-base/         # React 原型（参考实现）
+│   ├── components/       # React 组件
+│   ├── pages/           # React 页面
+│   └── types.ts        # TypeScript 类型定义
+├── docs/                # 项目文档
+│   ├── flutter-development-plan.md
+│   ├── frontend-dev-detail.md
+│   └── UI-Prototype-Design-Spec.md
+├── .github/
+│   └── workflows/
+│       └── ci.yml      # CI/CD 配置
+├── AGENTS.md           # 开发计划和规范
+├── Makefile            # 开发命令快捷方式
+├── docker-compose.yml  # 服务编排配置
+└── README.md          # 本文件
 ```
 
 ## 🔧 技术栈
@@ -111,28 +163,68 @@ speaksense/
 
 - **框架**: FastAPI + Pydantic v2
 - **数据库**: PostgreSQL + SQLAlchemy 2.0
-- **任务队列**: RQ + Redis
-- **语音识别**: faster-whisper（本地部署）
+- **迁移工具**: Alembic
+- **任务队列**: RQ (Redis Queue)
+- **语音识别**: faster-whisper（支持 8-bit 量化）
 - **AI 评估**: OpenAI 兼容接口（支持 DeepSeek、Qwen、GLM、Kimi）
+- **代码规范**: ruff, black, isort, mypy
+- **测试框架**: pytest
 
 ### 前端
 
-- **框架**: Flutter 3.35.0+
-- **状态管理**: Riverpod
-- **路由**: go_router
+- **框架**: Flutter 3.35.0+（Stable Channel）
+- **状态管理**: Provider
 - **网络**: dio
-- **UI 组件**: forui
+- **UI 组件**: forui（替代部分 Material 3）
 - **图表**: fl_chart
+- **本地存储**: Hive, Shared Preferences
+- **代码规范**: flutter analyze, dart format
+
+### 基础设施
+
+- **容器化**: Docker & Docker Compose
+- **CI/CD**: GitHub Actions
+- **API 文档**: OpenAPI (自动生成)
 
 ## 📊 开发进度
 
-- [x] M0: 项目初始化
-- [x] M1: 后端核心功能
-- [x] M2: 语音与实时通信
-- [ ] M3: Flutter 界面（进行中）
-- [ ] M4: 硬化与运维
+### 当前进度（2025-02-04）
 
-详细进度请查看 [AGENTS.md](AGENTS.md)。
+- [ ] **M0 - 项目初始化**
+  - [ ] 创建项目结构
+  - [ ] 配置开发工具链
+  - [ ] Docker Compose 配置
+  - [ ] 日志和错误处理
+
+- [ ] **M1 - 后端核心功能**
+  - [ ] 用户认证（JWT）
+  - [ ] 练习题板管理
+  - [ ] 练习记录和答案
+  - [ ] 评估任务和结果
+  - [ ] 生词本功能
+  - [ ] API 版本控制和限流
+
+- [ ] **M2 - 语音与实时通信**
+  - [ ] ASR 语音识别集成
+  - [ ] 音频上传和处理
+  - [ ] WebSocket 实时推送
+
+- [ ] **M3 - Flutter 界面**
+  - [ ] 项目初始化和 Forui 集成
+  - [ ] 设计系统和主题配置
+  - [ ] 场景选择页面（Home）
+  - [ ] 练习页面（Practice）
+  - [ ] 评估历史页面（Evaluation）
+  - [ ] 生词本页面（Wordbook）
+  - [ ] WebSocket 集成
+
+- [ ] **M4 - 硬化与运维**
+  - [ ] 安全头和 CSP
+  - [ ] 可观测性（日志、监控）
+  - [ ] 负载测试
+  - [ ] CI/CD 优化
+
+详细开发计划请查看 [AGENTS.md](AGENTS.md) 和 [Flutter 开发计划](docs/flutter-development-plan.md)。
 
 ## 🤝 贡献指南
 
@@ -142,9 +234,52 @@ speaksense/
 4. 推送到分支 (`git push origin feat/amazing-feature`)
 5. 开启 Pull Request
 
-请遵循项目代码规范：
-- 后端: `ruff`, `black`, `isort`, `mypy`
-- 前端: `flutter analyze`, `dart format`
+### 分支策略（MVP 期间）
+
+- `master` - 稳定分支（生产代码）
+- `dev` - 集成分支（日常开发）
+- `feat/*` - 特性分支（从 `dev` 创建）
+- `fix/*` - 修复分支（从 `dev` 创建）
+
+### 代码规范
+
+#### 提交消息
+
+使用 Conventional Commits 规范：
+
+- `feat`: 新功能
+- `fix`: 修复 bug
+- `chore`: 构建/工具链配置
+- `docs`: 文档更新
+- `refactor`: 代码重构
+- `test`: 测试相关
+
+示例：
+```bash
+feat: add user authentication with JWT
+fix: resolve audio upload timeout issue
+docs: update API documentation
+```
+
+#### 后端代码规范
+
+- 使用类型提示（Type Hints）
+- 遵循 PEP 257 文档字符串规范
+- 函数命名使用 snake_case
+- 运行代码检查：
+  ```bash
+  make fmt && make lint && make type
+  ```
+
+#### 前端代码规范
+
+- 使用 Flutter 推荐的目录结构
+- 遵循 Effective Dart 指南
+- 运行代码检查：
+  ```bash
+  flutter analyze
+  dart format .
+  ```
 
 ## 📄 许可证
 
@@ -156,6 +291,13 @@ speaksense/
 
 - 提交 Issue
 - 发送邮件至项目维护者
+
+## 🔗 相关资源
+
+- [Flutter 官方文档](https://flutter.dev/docs)
+- [FastAPI 官方文档](https://fastapi.tiangolo.com)
+- [Forui 组件库](https://forui.dev)
+- [AGENTS.md 开发计划](AGENTS.md)
 
 ---
 

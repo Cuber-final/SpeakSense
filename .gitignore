@@ -19,3 +19,6 @@ backend/.env
 # Mac
 .DS_Store
 
+
+# Frontend prototype (local only)
+frontend-base/
