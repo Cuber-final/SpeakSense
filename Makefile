@@ -1,6 +1,8 @@
 SHELL := /bin/bash
 
-.PHONY: dev dev-down api worker fmt lint type test migrate openapi
+FRONTEND_DIR := frontend
+
+.PHONY: dev dev-down api worker fmt lint type test migrate openapi fe-web fe-web-server fe-build-web fe-analyze
 
 dev:
 	docker compose up -d --build
@@ -34,3 +36,14 @@ migrate:
 openapi:
 	python -c "import json; from backend.app.main import app; print(json.dumps(app.openapi(), indent=2))" > openapi.json
 
+fe-web:
+	cd $(FRONTEND_DIR) && flutter run -d chrome --no-web-resources-cdn
+
+fe-web-server:
+	cd $(FRONTEND_DIR) && flutter run -d web-server --web-hostname 0.0.0.0 --web-port 8787 --no-web-resources-cdn
+
+fe-build-web:
+	cd $(FRONTEND_DIR) && flutter build web --no-web-resources-cdn
+
+fe-analyze:
+	cd $(FRONTEND_DIR) && flutter analyze
