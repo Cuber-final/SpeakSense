@@ -4,6 +4,7 @@ import 'package:speaksense_app/models/scenario.dart';
 import 'package:speaksense_app/services/content_repository.dart';
 import 'package:speaksense_app/widgets/data_source_banner.dart';
 import 'package:speaksense_app/widgets/scenario_card.dart';
+import 'package:speaksense_app/widgets/state_panel.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -143,17 +144,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 20),
                 if (_isLoading)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 36),
-                    child: Center(child: CircularProgressIndicator()),
+                  StatePanel.loading(
+                    title: '加载场景中...',
+                    description: '正在获取最新的练习场景，请稍候。',
                   )
                 else if (filtered.isEmpty)
-                  const Card(
-                    margin: EdgeInsets.zero,
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Text('No scenarios found for current filters.'),
-                    ),
+                  StatePanel.empty(
+                    title: '暂无匹配场景',
+                    description: '尝试切换分类或刷新列表。',
+                    actionLabel: '重新加载',
+                    onAction: _loadScenarios,
                   )
                 else
                   LayoutBuilder(
@@ -163,32 +163,19 @@ class _HomeScreenState extends State<HomeScreen> {
                           final double itemWidth =
                               (constraints.maxWidth - spacing * (columns - 1)) /
                               columns;
-                          final double targetHeight = switch (columns) {
-                            1 => 304,
-                            2 => 316,
-                            _ => 324,
-                          };
-                          final double aspectRatio = (itemWidth / targetHeight)
-                              .clamp(0.95, 1.9);
-
-                          return GridView.builder(
-                            itemCount: filtered.length,
-                            physics: const NeverScrollableScrollPhysics(),
-                            shrinkWrap: true,
-                            gridDelegate:
-                                SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: columns,
-                                  mainAxisSpacing: spacing,
-                                  crossAxisSpacing: spacing,
-                                  childAspectRatio: aspectRatio,
+                          return Wrap(
+                            spacing: spacing,
+                            runSpacing: spacing,
+                            children: <Widget>[
+                              for (final Scenario scenario in filtered)
+                                SizedBox(
+                                  width: itemWidth,
+                                  child: ScenarioCard(
+                                    scenario: scenario,
+                                    onTap: widget.onOpenPractice,
+                                  ),
                                 ),
-                            itemBuilder: (BuildContext context, int index) {
-                              final Scenario scenario = filtered[index];
-                              return ScenarioCard(
-                                scenario: scenario,
-                                onTap: widget.onOpenPractice,
-                              );
-                            },
+                            ],
                           );
                         },
                   ),

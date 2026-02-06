@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
 import 'package:speaksense_app/models/evaluation_session.dart';
 import 'package:speaksense_app/services/content_repository.dart';
 import 'package:speaksense_app/utils/material_icon_mapper.dart';
 import 'package:speaksense_app/widgets/data_source_banner.dart';
+import 'package:speaksense_app/widgets/state_panel.dart';
 
 class EvaluationListScreen extends StatefulWidget {
   const EvaluationListScreen({
@@ -89,10 +91,10 @@ class _EvaluationListScreenState extends State<EvaluationListScreen> {
                   ],
                 ),
               ),
-              FilledButton.icon(
-                onPressed: _loadSessions,
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('Refresh'),
+              FButton(
+                onPress: _loadSessions,
+                prefix: const Icon(Icons.add_rounded),
+                child: const Text('Refresh'),
               ),
             ],
           ),
@@ -101,8 +103,7 @@ class _EvaluationListScreenState extends State<EvaluationListScreen> {
           const SizedBox(height: 14),
           const _StatsRow(),
           const SizedBox(height: 20),
-          Card(
-            margin: EdgeInsets.zero,
+          FCard.raw(
             child: Padding(
               padding: const EdgeInsets.all(18),
               child: Column(
@@ -117,37 +118,73 @@ class _EvaluationListScreenState extends State<EvaluationListScreen> {
                         ),
                       ),
                       const Spacer(),
-                      OutlinedButton(
-                        onPressed: () {},
+                      FButton(
+                        onPress: () {},
+                        style: FButtonStyle.outline(),
                         child: const Text('Last 30 Days'),
                       ),
                     ],
                   ),
                   const SizedBox(height: 10),
                   if (_isLoading)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 28),
-                      child: Center(child: CircularProgressIndicator()),
+                    StatePanel.loading(
+                      title: '加载评估记录...',
+                      description: '正在同步最近的练习评估。',
                     )
                   else if (_sessions.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                      child: Text('No evaluation sessions available.'),
+                    StatePanel.empty(
+                      title: '暂无评估记录',
+                      description: '完成一次练习后会在这里看到评分。',
+                      actionLabel: '刷新列表',
+                      onAction: _loadSessions,
                     )
                   else
-                    for (final EvaluationSession session in _sessions)
-                      _SessionTile(
-                        session: session,
-                        onTap: () => widget.onOpenDetail(session.id),
-                      ),
+                    FItemGroup.group(
+                      physics: const NeverScrollableScrollPhysics(),
+                      divider: FItemDivider.indented,
+                      children: <FItem>[
+                        for (final EvaluationSession session in _sessions)
+                          FItem(
+                            onPress: () => widget.onOpenDetail(session.id),
+                            prefix: CircleAvatar(
+                              backgroundColor:
+                                  Color(session.colorHex).withValues(
+                                alpha: 0.12,
+                              ),
+                              child: Icon(
+                                mapMaterialSymbol(session.icon),
+                                color: Color(session.colorHex),
+                              ),
+                            ),
+                            title: Text(
+                              session.scenarioTitle,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            subtitle: Text(session.date),
+                            details: Text(
+                              '${session.avgScore.toStringAsFixed(1)}/5.0',
+                              style: TextStyle(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            suffix: const Icon(Icons.chevron_right_rounded),
+                          ),
+                      ],
+                    ),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 16),
-          Card(
-            margin: EdgeInsets.zero,
-            color: theme.colorScheme.primary.withValues(alpha: 0.08),
+          FCard.raw(
+            style: (FCardStyle style) => style.copyWith(
+              decoration: style.decoration.copyWith(
+                color: theme.colorScheme.primary.withValues(alpha: 0.08),
+              ),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
@@ -236,8 +273,7 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    return Card(
-      margin: EdgeInsets.zero,
+    return FCard.raw(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -263,55 +299,6 @@ class _StatCard extends StatelessWidget {
                 color: Colors.green.shade600,
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SessionTile extends StatelessWidget {
-  const _SessionTile({required this.session, required this.onTap});
-
-  final EvaluationSession session;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    return Container(
-      margin: const EdgeInsets.only(top: 10),
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.25)),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: ListTile(
-        onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        leading: CircleAvatar(
-          backgroundColor: Color(session.colorHex).withValues(alpha: 0.12),
-          child: Icon(
-            mapMaterialSymbol(session.icon),
-            color: Color(session.colorHex),
-          ),
-        ),
-        title: Text(
-          session.scenarioTitle,
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-        subtitle: Text(session.date),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(
-              '${session.avgScore.toStringAsFixed(1)}/5.0',
-              style: TextStyle(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(width: 10),
-            const Icon(Icons.chevron_right_rounded),
           ],
         ),
       ),

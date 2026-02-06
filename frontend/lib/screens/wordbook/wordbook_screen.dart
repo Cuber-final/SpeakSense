@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:speaksense_app/models/vocabulary_word.dart';
 import 'package:speaksense_app/services/content_repository.dart';
 import 'package:speaksense_app/widgets/data_source_banner.dart';
+import 'package:speaksense_app/widgets/state_panel.dart';
 
 class WordbookScreen extends StatefulWidget {
   const WordbookScreen({required this.useMockApi, super.key});
@@ -124,17 +125,13 @@ class _WordbookScreenState extends State<WordbookScreen> {
           ),
           const SizedBox(height: 14),
           if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 32),
-              child: Center(child: CircularProgressIndicator()),
-            )
+            StatePanel.loading(title: '加载词本中...', description: '正在同步你的收藏词汇。')
           else if (words.isEmpty)
-            const Card(
-              margin: EdgeInsets.zero,
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text('No saved words yet.'),
-              ),
+            StatePanel.empty(
+              title: '暂时还没有生词',
+              description: '完成练习后可一键加入词本。',
+              actionLabel: '刷新词本',
+              onAction: _loadWords,
             )
           else
             for (final VocabularyWord word in words) _WordTile(word: word),

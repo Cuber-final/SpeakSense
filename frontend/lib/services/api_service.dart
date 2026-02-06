@@ -95,6 +95,17 @@ class ApiService {
     );
   }
 
+  Future<Map<String, dynamic>> fetchEvaluationDetail(String sessionId) {
+    return _fetchMap(
+      paths: <String>[
+        '/v1/attempts/$sessionId/evaluation',
+        '/v1/evaluations/$sessionId',
+        '/v1/attempts/$sessionId',
+      ],
+      objectKeys: const <String>['evaluation', 'attempt', 'result', 'data'],
+    );
+  }
+
   Future<List<Map<String, dynamic>>> fetchWordbook() {
     return _fetchList(
       paths: const <String>['/v1/wordbook', '/v1/vocab'],
@@ -178,6 +189,25 @@ class ApiService {
     );
   }
 
+  Future<Map<String, dynamic>> _fetchMap({
+    required List<String> paths,
+    List<String> objectKeys = const <String>[],
+  }) async {
+    Object? lastError;
+    for (final String path in paths) {
+      try {
+        final Response<dynamic> response = await _dio.get<dynamic>(path);
+        return _extractMap(response.data, objectKeys);
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw ApiRequestException(
+      message: 'API request failed for ${paths.join(', ')}',
+      innerError: lastError,
+    );
+  }
+
   List<Map<String, dynamic>> _extractMapList(
     dynamic payload,
     List<String> collectionKeys,
@@ -217,6 +247,28 @@ class ApiService {
     return const <Map<String, dynamic>>[];
   }
 
+  Map<String, dynamic> _extractMap(
+    dynamic payload,
+    List<String> objectKeys,
+  ) {
+    if (payload is Map<String, dynamic>) {
+      final Map<String, dynamic>? data =
+          payload['data'] as Map<String, dynamic>?;
+      if (data != null) {
+        return data;
+      }
+      final Map<String, dynamic>? nested = _extractObjectFromKeys(
+        payload,
+        objectKeys,
+      );
+      if (nested != null) {
+        return nested;
+      }
+      return payload;
+    }
+    return const <String, dynamic>{};
+  }
+
   List<Map<String, dynamic>> _extractFromKeys(
     Map<String, dynamic> map,
     List<String> keys,
@@ -234,6 +286,19 @@ class ApiService {
       }
     }
     return const <Map<String, dynamic>>[];
+  }
+
+  Map<String, dynamic>? _extractObjectFromKeys(
+    Map<String, dynamic> payload,
+    List<String> keys,
+  ) {
+    for (final String key in keys) {
+      final dynamic value = payload[key];
+      if (value is Map<String, dynamic>) {
+        return value;
+      }
+    }
+    return null;
   }
 }
 

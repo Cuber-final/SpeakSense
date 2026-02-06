@@ -1,4 +1,5 @@
 import 'package:speaksense_app/data/mock_data.dart';
+import 'package:speaksense_app/models/evaluation_detail.dart';
 import 'package:speaksense_app/models/evaluation_session.dart';
 import 'package:speaksense_app/models/scenario.dart';
 import 'package:speaksense_app/models/vocabulary_word.dart';
@@ -85,6 +86,41 @@ class ContentRepository {
         data: kEvaluationSessions,
         fromMock: true,
         notice: '评估 API 不可用，已自动回退到 Mock 数据。',
+      );
+    }
+  }
+
+  Future<RepositoryPayload<EvaluationDetail>> loadEvaluationDetail({
+    required String sessionId,
+    required bool useMockApi,
+  }) async {
+    if (useMockApi) {
+      return RepositoryPayload<EvaluationDetail>(
+        data: kEvaluationDetailsById[sessionId] ?? kEvaluationDetailFallback,
+        fromMock: true,
+      );
+    }
+
+    try {
+      final Map<String, dynamic> response = await _apiService
+          .fetchEvaluationDetail(sessionId);
+      final EvaluationDetail detail = EvaluationDetail.fromJson(response);
+      if (detail.questions.isEmpty || detail.dimensions.isEmpty) {
+        return RepositoryPayload<EvaluationDetail>(
+          data: kEvaluationDetailsById[sessionId] ?? kEvaluationDetailFallback,
+          fromMock: true,
+          notice: '评估详情不完整，已自动回退到 Mock 数据。',
+        );
+      }
+      return RepositoryPayload<EvaluationDetail>(
+        data: detail,
+        fromMock: false,
+      );
+    } catch (_) {
+      return RepositoryPayload<EvaluationDetail>(
+        data: kEvaluationDetailsById[sessionId] ?? kEvaluationDetailFallback,
+        fromMock: true,
+        notice: '评估详情 API 不可用，已自动回退到 Mock 数据。',
       );
     }
   }

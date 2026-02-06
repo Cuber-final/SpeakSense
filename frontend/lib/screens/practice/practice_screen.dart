@@ -4,7 +4,9 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:forui/forui.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speaksense_app/services/api_service.dart';
 import 'package:speaksense_app/utils/audio_duration_probe.dart';
 
@@ -48,10 +50,11 @@ class PracticeScreen extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                TextButton.icon(
-                  onPressed: onExit,
-                  icon: const Icon(Icons.logout_rounded),
-                  label: const Text('退出会话'),
+                FButton(
+                  onPress: onExit,
+                  style: FButtonStyle.ghost(),
+                  prefix: const Icon(Icons.logout_rounded),
+                  child: const Text('退出会话'),
                 ),
               ],
             ),
@@ -85,10 +88,10 @@ class PracticeScreen extends StatelessWidget {
                 const SizedBox(height: 16),
                 Align(
                   alignment: Alignment.centerRight,
-                  child: FilledButton.icon(
-                    onPressed: onSubmit,
-                    icon: const Icon(Icons.send_rounded),
-                    label: const Text('Submit Answer'),
+                  child: FButton(
+                    onPress: onSubmit,
+                    prefix: const Icon(Icons.send_rounded),
+                    child: const Text('Submit Answer'),
                   ),
                 ),
               ],
@@ -250,6 +253,9 @@ class _PracticeInputArea extends StatefulWidget {
 class _PracticeInputAreaState extends State<_PracticeInputArea> {
   static const int _maxAudioBytes = 10 * 1024 * 1024;
   static const Duration _maxAudioDuration = Duration(seconds: 90);
+  static const int _softWordLimit = 35;
+  static const int _hardWordLimit = 40;
+  static const String _draftKey = 'practice_answer_draft';
   static const List<String> _allowedExtensions = <String>[
     'mp3',
     'wav',
@@ -268,12 +274,12 @@ class _PracticeInputAreaState extends State<_PracticeInputArea> {
   double _mockRecordingSeconds = 0;
   String? _pickedFileName;
   Duration? _pickedDuration;
-  String? _notice;
-  String? _error;
+  String? _draftStatus;
   CancelToken? _cancelToken;
   Uint8List? _lastAudioBytes;
   String? _lastAudioFileName;
   Timer? _mockRecordingTimer;
+  Timer? _draftTimer;
 
   @override
   void initState() {
@@ -282,12 +288,14 @@ class _PracticeInputAreaState extends State<_PracticeInputArea> {
       text: 'I would like a small latte, please.',
     );
     _asrController = TextEditingController();
+    _loadDraft();
   }
 
   @override
   void dispose() {
     _cancelToken?.cancel('dispose');
     _mockRecordingTimer?.cancel();
+    _draftTimer?.cancel();
     _answerController.dispose();
     _asrController.dispose();
     super.dispose();
@@ -303,6 +311,57 @@ class _PracticeInputAreaState extends State<_PracticeInputArea> {
 
   bool get _isBusy => _isUploading || _isMockRecognizing;
 
+  void _showNotice(
+    String title, {
+    String? description,
+    IconData icon = Icons.check_circle_rounded,
+  }) {
+    if (!mounted) {
+      return;
+    }
+    showFToast(
+      context: context,
+      title: Text(title),
+      description: description == null ? null : Text(description),
+      icon: Icon(icon),
+    );
+  }
+
+  Future<void> _showErrorDialog(String message) async {
+    if (!mounted) {
+      return;
+    }
+    final bool canRetry = _lastAudioBytes != null;
+    await showFDialog<void>(
+      context: context,
+      builder: (
+        BuildContext context,
+        FDialogStyle dialogStyle,
+        Animation<double> animation,
+      ) {
+        return FDialog(
+          title: const Text('语音处理失败'),
+          body: Text(message),
+          actions: <Widget>[
+            if (canRetry)
+              FButton(
+                onPress: () {
+                  Navigator.of(context).pop();
+                  _retryUpload();
+                },
+                child: const Text('重试上传'),
+              ),
+            FButton(
+              style: FButtonStyle.outline(),
+              onPress: () => Navigator.of(context).pop(),
+              child: const Text('知道了'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _toggleMockRecording() {
     if (_isBusy) {
       return;
@@ -317,9 +376,8 @@ class _PracticeInputAreaState extends State<_PracticeInputArea> {
       _isMockRecording = true;
       _mockRecordingSeconds = 0;
       _uploadProgress = 0;
-      _error = null;
-      _notice = '模拟录音中...再次点击可结束。';
     });
+    _showNotice('模拟录音中', description: '再次点击可结束。', icon: Icons.mic_rounded);
 
     _mockRecordingTimer?.cancel();
     _mockRecordingTimer = Timer.periodic(const Duration(milliseconds: 200), (
@@ -339,6 +397,34 @@ class _PracticeInputAreaState extends State<_PracticeInputArea> {
     });
   }
 
+  Future<void> _loadDraft() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String? draft = prefs.getString(_draftKey);
+    if (!mounted || draft == null || draft.trim().isEmpty) {
+      return;
+    }
+    setState(() {
+      _answerController.text = draft;
+      _draftStatus = '已恢复上次草稿';
+    });
+  }
+
+  void _scheduleDraftSave() {
+    _draftTimer?.cancel();
+    _draftTimer = Timer(const Duration(milliseconds: 600), _saveDraftNow);
+  }
+
+  Future<void> _saveDraftNow() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_draftKey, _answerController.text);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _draftStatus = '草稿已保存';
+    });
+  }
+
   Future<void> _finishMockRecording() async {
     _mockRecordingTimer?.cancel();
     if (!mounted) {
@@ -347,9 +433,8 @@ class _PracticeInputAreaState extends State<_PracticeInputArea> {
     setState(() {
       _isMockRecording = false;
       _isMockRecognizing = true;
-      _error = null;
-      _notice = '模拟识别中...';
     });
+    _showNotice('模拟识别中', icon: Icons.graphic_eq_rounded);
 
     await Future<void>.delayed(const Duration(milliseconds: 900));
     if (!mounted) {
@@ -364,15 +449,13 @@ class _PracticeInputAreaState extends State<_PracticeInputArea> {
     setState(() {
       _isMockRecognizing = false;
       _asrController.text = transcript;
-      _notice = '模拟语音识别完成，可编辑后应用到答案。';
     });
+    _showNotice('模拟语音识别完成', description: '可编辑后应用到答案。');
   }
 
   Future<void> _pickAndUploadAudio() async {
     if (_isMockRecording) {
-      setState(() {
-        _error = '请先结束模拟录音，再执行文件上传。';
-      });
+      _showErrorDialog('请先结束模拟录音，再执行文件上传。');
       return;
     }
     if (_isMockRecognizing) {
@@ -380,8 +463,6 @@ class _PracticeInputAreaState extends State<_PracticeInputArea> {
     }
 
     setState(() {
-      _error = null;
-      _notice = null;
       _uploadProgress = 0;
     });
 
@@ -397,24 +478,20 @@ class _PracticeInputAreaState extends State<_PracticeInputArea> {
     final PlatformFile file = result.files.single;
     final Uint8List? bytes = file.bytes;
     if (bytes == null) {
-      setState(() {
-        _error = '未读取到音频文件数据，请更换文件重试。';
-      });
+      _showErrorDialog('未读取到音频文件数据，请更换文件重试。');
       return;
     }
 
     final String extension = _extractExtension(file.name);
     if (!_allowedExtensions.contains(extension)) {
-      setState(() {
-        _error = '不支持的音频格式：.$extension。';
-      });
+      _showErrorDialog('不支持的音频格式：.$extension。');
       return;
     }
     if (bytes.lengthInBytes > _maxAudioBytes) {
       final double sizeMb = bytes.lengthInBytes / (1024 * 1024);
-      setState(() {
-        _error = '音频过大（${sizeMb.toStringAsFixed(2)}MB），请控制在 10MB 内。';
-      });
+      _showErrorDialog(
+        '音频过大（${sizeMb.toStringAsFixed(2)}MB），请控制在 10MB 内。',
+      );
       return;
     }
 
@@ -423,9 +500,9 @@ class _PracticeInputAreaState extends State<_PracticeInputArea> {
       mimeType: _guessMimeType(extension),
     );
     if (duration != null && duration > _maxAudioDuration) {
-      setState(() {
-        _error = '音频时长 ${_formatDuration(duration)}，超过 90 秒限制。';
-      });
+      _showErrorDialog(
+        '音频时长 ${_formatDuration(duration)}，超过 90 秒限制。',
+      );
       return;
     }
 
@@ -435,8 +512,6 @@ class _PracticeInputAreaState extends State<_PracticeInputArea> {
       _lastAudioBytes = bytes;
       _lastAudioFileName = file.name;
       _isUploading = true;
-      _error = null;
-      _notice = null;
       _uploadProgress = 0;
     });
     _cancelToken = CancelToken();
@@ -471,8 +546,6 @@ class _PracticeInputAreaState extends State<_PracticeInputArea> {
     setState(() {
       _isUploading = true;
       _isMockRecognizing = false;
-      _error = null;
-      _notice = null;
       _uploadProgress = 0;
     });
     _cancelToken?.cancel('replaced');
@@ -518,23 +591,24 @@ class _PracticeInputAreaState extends State<_PracticeInputArea> {
         _asrController.text = transcript.isEmpty
             ? 'ASR 未返回可编辑文本，请手动输入。'
             : transcript;
-        _notice = widget.useMockApi
-            ? 'Mock ASR 已生成预览，可直接编辑。'
-            : '语音上传成功，已生成 ASR 预览。'
-                  '${duration == null ? '（未读取本地时长，已交由后端做 90 秒校验）' : ''}';
       });
+      _showNotice(
+        widget.useMockApi ? 'Mock ASR 已生成预览' : '语音上传成功',
+        description: widget.useMockApi
+            ? '可直接编辑。'
+            : '已生成 ASR 预览。'
+                  '${duration == null ? '（未读取本地时长，已交由后端做 90 秒校验）' : ''}',
+      );
     } catch (error) {
       if (!mounted) {
         return;
       }
-      setState(() {
-        if (error is ApiRequestException) {
-          final String extra = error.code == null ? '' : ' [${error.code}]';
-          _error = '${error.message}$extra';
-        } else {
-          _error = '语音上传失败：$error';
-        }
-      });
+      if (error is ApiRequestException) {
+        final String extra = error.code == null ? '' : ' [${error.code}]';
+        await _showErrorDialog('${error.message}$extra');
+      } else {
+        await _showErrorDialog('语音上传失败：$error');
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -556,9 +630,9 @@ class _PracticeInputAreaState extends State<_PracticeInputArea> {
     }
     setState(() {
       _answerController.text = transcript;
-      _notice = '已将 ASR 预览应用到答案输入框。';
-      _error = null;
     });
+    _showNotice('已应用 ASR 预览', description: '文本已更新到答案输入框。');
+    _scheduleDraftSave();
   }
 
   String _extractExtension(String fileName) {
@@ -592,7 +666,13 @@ class _PracticeInputAreaState extends State<_PracticeInputArea> {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final int count = _wordCount;
-    final bool overLimit = count > 40;
+    final bool overLimit = count > _hardWordLimit;
+    final bool nearLimit = count >= _softWordLimit && count <= _hardWordLimit;
+    final Color countColor = overLimit
+        ? Colors.red
+        : nearLimit
+        ? Colors.orange.shade700
+        : theme.hintColor;
 
     return Card(
       margin: EdgeInsets.zero,
@@ -629,13 +709,16 @@ class _PracticeInputAreaState extends State<_PracticeInputArea> {
               ],
             ),
             const SizedBox(height: 14),
-            TextField(
-              controller: _answerController,
-              maxLines: 8,
-              onChanged: (_) => setState(() {}),
-              decoration: const InputDecoration(
-                hintText: 'Start speaking or type your answer...',
+            FTextField(
+              control: FTextFieldControl.managed(
+                controller: _answerController,
+                onChange: (_) {
+                  setState(() {});
+                  _scheduleDraftSave();
+                },
               ),
+              maxLines: 8,
+              hint: 'Start speaking or type your answer...',
             ),
             const SizedBox(height: 12),
             Row(
@@ -675,19 +758,50 @@ class _PracticeInputAreaState extends State<_PracticeInputArea> {
                   decoration: BoxDecoration(
                     color: overLimit
                         ? Colors.red.withValues(alpha: 0.1)
+                        : nearLimit
+                        ? Colors.orange.withValues(alpha: 0.12)
                         : theme.colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
                     '$count / 40 words',
                     style: TextStyle(
-                      color: overLimit ? Colors.red : theme.hintColor,
+                      color: countColor,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
               ],
             ),
+            if (nearLimit && !overLimit) ...<Widget>[
+              const SizedBox(height: 8),
+              Text(
+                '已接近 35 词软上限，建议精简回答。',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: Colors.orange.shade700,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+            if (overLimit) ...<Widget>[
+              const SizedBox(height: 8),
+              Text(
+                '已超过 40 词上限，请缩短回答。',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+            if (_draftStatus != null) ...<Widget>[
+              const SizedBox(height: 6),
+              Text(
+                _draftStatus!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.hintColor,
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
@@ -719,35 +833,36 @@ class _PracticeInputAreaState extends State<_PracticeInputArea> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  TextField(
-                    controller: _asrController,
-                    maxLines: 4,
-                    onChanged: (_) => setState(() {}),
-                    decoration: const InputDecoration(
-                      hintText: 'ASR transcript preview will appear here...',
+                  FTextField(
+                    control: FTextFieldControl.managed(
+                      controller: _asrController,
+                      onChange: (_) => setState(() {}),
                     ),
+                    maxLines: 4,
+                    hint: 'ASR transcript preview will appear here...',
                   ),
                   const SizedBox(height: 10),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: <Widget>[
-                      FilledButton.icon(
-                        onPressed: _isUploading || _isMockRecognizing
+                      FButton(
+                        onPress: _isUploading || _isMockRecognizing
                             ? null
                             : _toggleMockRecording,
-                        icon: Icon(
+                        prefix: Icon(
                           _isMockRecording
                               ? Icons.stop_circle_rounded
                               : Icons.mic_rounded,
                         ),
-                        label: Text(_isMockRecording ? '结束模拟录音' : '点击说话（Mock）'),
+                        child: Text(_isMockRecording ? '结束模拟录音' : '点击说话（Mock）'),
                       ),
-                      FilledButton.icon(
-                        onPressed: _isBusy || _isMockRecording
+                      FButton(
+                        onPress: _isBusy || _isMockRecording
                             ? null
                             : _pickAndUploadAudio,
-                        icon: _isUploading
+                        style: FButtonStyle.outline(),
+                        prefix: _isUploading
                             ? const SizedBox(
                                 width: 14,
                                 height: 14,
@@ -756,28 +871,22 @@ class _PracticeInputAreaState extends State<_PracticeInputArea> {
                                 ),
                               )
                             : const Icon(Icons.upload_file_rounded),
-                        label: Text(_isUploading ? '上传中...' : '选择并上传音频'),
+                        child: Text(_isUploading ? '上传中...' : '选择并上传音频'),
                       ),
                       if (_isUploading)
-                        OutlinedButton.icon(
-                          onPressed: _cancelUpload,
-                          icon: const Icon(Icons.stop_circle_outlined),
-                          label: const Text('取消上传'),
+                        FButton(
+                          onPress: _cancelUpload,
+                          style: FButtonStyle.destructive(),
+                          prefix: const Icon(Icons.stop_circle_outlined),
+                          child: const Text('取消上传'),
                         ),
-                      if (!_isUploading &&
-                          _error != null &&
-                          _lastAudioBytes != null)
-                        OutlinedButton.icon(
-                          onPressed: _retryUpload,
-                          icon: const Icon(Icons.refresh_rounded),
-                          label: const Text('重试上传'),
-                        ),
-                      OutlinedButton.icon(
-                        onPressed: _asrController.text.trim().isEmpty
+                      FButton(
+                        onPress: _asrController.text.trim().isEmpty
                             ? null
                             : _applyTranscriptToAnswer,
-                        icon: const Icon(Icons.edit_note_rounded),
-                        label: const Text('应用到答案'),
+                        style: FButtonStyle.secondary(),
+                        prefix: const Icon(Icons.edit_note_rounded),
+                        child: const Text('应用到答案'),
                       ),
                     ],
                   ),
@@ -826,26 +935,6 @@ class _PracticeInputAreaState extends State<_PracticeInputArea> {
                       color: theme.hintColor,
                     ),
                   ),
-                  if (_notice != null) ...<Widget>[
-                    const SizedBox(height: 6),
-                    Text(
-                      _notice!,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: Colors.green.shade700,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                  if (_error != null) ...<Widget>[
-                    const SizedBox(height: 6),
-                    Text(
-                      _error!,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.error,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -853,12 +942,13 @@ class _PracticeInputAreaState extends State<_PracticeInputArea> {
             Row(
               children: <Widget>[
                 Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _isBusy || _isMockRecording
+                  child: FButton(
+                    onPress: _isBusy || _isMockRecording
                         ? null
                         : _pickAndUploadAudio,
-                    icon: const Icon(Icons.mic_external_on_rounded),
-                    label: const Text('Upload Voice'),
+                    style: FButtonStyle.outline(),
+                    prefix: const Icon(Icons.mic_external_on_rounded),
+                    child: const Text('Upload Voice'),
                   ),
                 ),
               ],

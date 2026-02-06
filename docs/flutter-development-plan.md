@@ -455,6 +455,92 @@ frontend/
 
 ---
 
+## Forui 固定外观与回退说明
+
+- 当前 App 已固定使用 Forui 主题（不再提供运行时切换入口）。
+- Material 主题仍通过 `toApproximateMaterialTheme()` 保留近似映射，用于潜在回退或调试。
+- 如需临时降级：在 `frontend/lib/app/app.dart` 中替换为 `AppTheme.lightTheme / AppTheme.darkTheme`。
+
+---
+
+## Evaluation Detail API Contract（Draft）
+
+> 该契约用于约束后端字段，避免后续前端大改。
+
+### Endpoint
+```
+GET /v1/attempts/{attempt_id}/evaluation
+```
+
+兼容候选：
+```
+GET /v1/evaluations/{attempt_id}
+```
+
+### Success Response (示例)
+```json
+{
+  "data": {
+    "id": "att_123",
+    "scenario_title": "Coffee Shop Ordering",
+    "overall_score": 3.5,
+    "level": "Intermediate High",
+    "summary": "Great job! You are clearly understood by native speakers in most contexts.",
+    "dimensions": [
+      { "label": "Naturalness", "score": 4.5 },
+      { "label": "Richness", "score": 4.2 },
+      { "label": "Grammar", "score": 3.8 },
+      { "label": "Relevance", "score": 4.0 }
+    ],
+    "metrics": [
+      { "key": "duration", "label": "Duration", "value": "14m 32s" },
+      { "key": "pace", "label": "Pace", "value": "115 wpm" },
+      { "key": "vocabulary", "label": "Vocabulary", "value": "B2 Level" }
+    ],
+    "questions": [
+      {
+        "question": "How would you order a latte with oat milk?",
+        "answer": "Can I get a latte? ...",
+        "feedback": "Clear request, but \"oat milk inside\" sounds unnatural.",
+        "suggested_answer": "Could I get a hot latte with oat milk, please?",
+        "audio_url": "https://.../audio.wav",
+        "dimensions": [
+          { "label": "Relevance", "score": 4.8 },
+          { "label": "Naturalness", "score": 2.5 },
+          { "label": "Grammar", "score": 3.8 },
+          { "label": "Richness", "score": 3.2 }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 最小字段说明
+- `id` (string) 评估/attempt ID
+- `scenario_title` (string) 场景标题
+- `overall_score` (number) 总分 (0–5)
+- `level` (string) 等级描述
+- `summary` (string) 总结
+- `dimensions[]` (label/score)
+- `metrics[]` (key/label/value)
+- `questions[]` (question/answer/feedback/suggested_answer/audio_url/dimensions)
+
+### 错误响应
+遵循 Problem JSON：
+```json
+{
+  "error": {
+    "type": "validation_error",
+    "code": "EVAL_NOT_FOUND",
+    "message": "Evaluation not found",
+    "details": { "attempt_id": "att_123" }
+  }
+}
+```
+
+---
+
 ## 设计令牌映射
 
 ### 颜色

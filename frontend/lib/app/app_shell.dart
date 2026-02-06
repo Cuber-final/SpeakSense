@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:forui/forui.dart';
 import 'package:speaksense_app/app/app_state.dart';
 import 'package:speaksense_app/screens/evaluation/evaluation_detail_screen.dart';
 import 'package:speaksense_app/screens/evaluation/evaluation_list_screen.dart';
@@ -48,9 +49,11 @@ class _AppShellState extends State<AppShell> {
   }
 
   void _openEvaluationDetail(String sessionId) {
+    final bool useMockApi = context.read<AppState>().useMockApi;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => EvaluationDetailScreen(sessionId: sessionId),
+        builder: (_) =>
+            EvaluationDetailScreen(sessionId: sessionId, useMockApi: useMockApi),
       ),
     );
   }
@@ -142,22 +145,26 @@ class _AppShellState extends State<AppShell> {
       children: <Widget>[
         Scaffold(
           body: _buildCurrentPage(useMockApi),
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: _tab.index,
-            onDestinationSelected: (int value) => _setTab(AppTab.values[value]),
-            destinations: const <NavigationDestination>[
-              NavigationDestination(
+          bottomNavigationBar: FBottomNavigationBar(
+            index: _tab.index,
+            onChange: (int value) => _setTab(AppTab.values[value]),
+            safeAreaBottom: true,
+            children: const <Widget>[
+              FBottomNavigationBarItem(
                 icon: Icon(Icons.home_rounded),
-                label: '首页',
+                label: Text('首页'),
               ),
-              NavigationDestination(icon: Icon(Icons.mic_rounded), label: '练习'),
-              NavigationDestination(
+              FBottomNavigationBarItem(
+                icon: Icon(Icons.mic_rounded),
+                label: Text('练习'),
+              ),
+              FBottomNavigationBarItem(
                 icon: Icon(Icons.analytics_rounded),
-                label: '评估',
+                label: Text('评估'),
               ),
-              NavigationDestination(
+              FBottomNavigationBarItem(
                 icon: Icon(Icons.menu_book_rounded),
-                label: '词本',
+                label: Text('词本'),
               ),
             ],
           ),
@@ -173,7 +180,10 @@ class _AppShellState extends State<AppShell> {
   }
 }
 
-enum _DeveloperAction { toggleMockSource, emitEvaluationCompleted }
+enum _DeveloperAction {
+  toggleMockSource,
+  emitEvaluationCompleted,
+}
 
 class _DeveloperMenu extends StatelessWidget {
   const _DeveloperMenu();

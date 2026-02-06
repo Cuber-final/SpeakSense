@@ -1,6 +1,6 @@
 # Flutter 开发进度
 
-最后更新: 2026-02-05
+最后更新: 2026-02-06
 项目: SpeakSense AI English Coach (Flutter)
 
 ---
@@ -36,8 +36,12 @@
 ### Phase 6 - EvaluationDetail 页面
 - [x] 深色详情页
 - [x] Overall Score 区块
-- [x] 维度分数区块
-- [x] Question Breakdown 区块
+- [x] 维度分数区块（Radar 图）
+- [x] Question Breakdown 区块（多题折叠/展开）
+- [x] Question Breakdown 音频回放控件占位
+- [x] Question Breakdown 基础音频播放接线（just_audio）
+- [x] Suggested Answer + 复制交互
+- [x] EvaluationDetail 数据模型与 API 绑定
 
 ### Phase 7 - Wordbook 页面
 - [x] 搜索与状态筛选
@@ -106,5 +110,13 @@
 - [x] Practice 语音上传 `/v1/answers/voice` 与 ASR 预览编辑
 - [x] 语音上传增强：格式/大小/时长校验、进度、取消与重试
 - [x] Practice 新增“点击说话（Mock）”录音按钮与模拟识别闭环（演示用）
-- [~] 页面骨架态/空态与错误态打磨（Home/Evaluation/Wordbook 已接入）
-- [ ] 组件迁移到 Forui（按 M3 Forui 计划）
+- [x] Practice 文本草稿本地保存 + 35 词软提示
+- [x] 页面骨架态/空态与错误态打磨（统一状态组件已用于 Home/Evaluation/Wordbook/Practice/EvaluationDetail）
+- [x] Forui Step 1：接入 Forui 主题共存 + 调试开关
+- [x] Forui Step 2：设计令牌映射到 FThemeData（品牌色/字体/圆角/间距）
+- [x] Forui Step 3：Boards/Practice 文本组件迁移（FCard/FBadge/FItemGroup/FTextField/FButton）
+- [x] Forui Step 4：Practice 语音页与弹层迁移（FToast/FDialog）
+- [x] Forui Step 6：底部导航 + 全局 Toast/Dialog 统一为 Forui
+- [x] Forui Step 5：Evaluation 交互细化（卡片/反馈等 → Forui）
+- [x] Forui Step 7：QA（Web 构建通过；本地 Chrome 运行，WS 在无后端时会报连接失败）
+- [x] Forui Step 8：文档与回退（固定 Forui 外观）

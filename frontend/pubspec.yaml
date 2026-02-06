@@ -35,8 +35,8 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
-  # UI Components (暂时移除 forui，稍后添加)
-  # forui: ^0.9.0
+  # UI Components
+  forui: ^0.17.0
 
   # State Management
   provider: ^6.1.2
@@ -46,17 +46,20 @@ dependencies:
   web_socket_channel: ^3.0.3
   file_picker: ^8.1.7
 
+  # Data Persistence
+  shared_preferences: ^2.3.4
+
   # Data Persistence (暂时移除，待解决 Web 兼容性问题)
   # hive: ^2.2.3
   # hive_flutter: ^1.1.0
-  # shared_preferences: ^2.3.4
 
-  # Charts (暂时移除，待解决 Web 兼容性问题)
-  # fl_chart: ^0.70.2
+  # Charts
+  fl_chart: ^0.70.2
 
   # Audio (暂时移除，待解决 Web 兼容性问题)
   # record: ^5.1.2
-  # just_audio: ^0.9.42
+  just_audio: ^0.9.42
+  audio_session: ^0.1.19
 
   # File System (暂时移除，待解决 Web 兼容性问题)
   # path_provider: ^2.1.5
