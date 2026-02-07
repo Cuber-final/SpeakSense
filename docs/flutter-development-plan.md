@@ -338,19 +338,20 @@ frontend/
 
 **任务**:
 1. [ ] 创建Dio配置
-2. [ ] 实现API Service
+2. [ ] 与后端冻结 MVP 字段契约（先对齐 `docs/evaluation-detail-contract.md`）
+3. [ ] 实现API Service
    - 获取场景列表
    - 获取评估历史
    - 获取评估详情
    - 获取生词列表
    - 提交答案
    - 上传音频
-3. [ ] 实现WebSocket Service
+4. [ ] 实现WebSocket Service
    - 连接管理
    - 订阅评估完成事件
    - 显示"评估完成"Banner
-4. [ ] 实现错误处理和重试逻辑
-5. [ ] 添加加载状态和骨架屏
+5. [ ] 实现错误处理和重试逻辑
+6. [ ] 添加加载状态和骨架屏
 
 **服务**:
 - `ApiService`: API服务
@@ -538,6 +539,17 @@ GET /v1/evaluations/{attempt_id}
   }
 }
 ```
+
+---
+
+## 后端联调前置（新增）
+
+- LLM/VLM 抽象层调研与落地草案：`docs/llm-vlm-adapter-research.md`
+- 建议后端先完成统一 provider 抽象（含 OpenAI compatible/Ollama/vLLM）再推进前端 API 实连。
+- 前后端字段对齐顺序：
+  1. 先冻结评估详情契约（`docs/evaluation-detail-contract.md`）
+  2. 再接入 Practice 语音上传与 WS 实时事件
+  3. 最后收敛错误码与 Problem JSON 映射
 
 ---
 

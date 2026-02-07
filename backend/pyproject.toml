@@ -1,0 +1,25 @@
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "ASYNC", "B", "C4", "SIM"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_configs = true
+mypy_path = "backend"
+exclude = ["backend/alembic"]
+
+[[tool.mypy.overrides]]
+module = ["alembic.*", "rq.*"]
+ignore_missing_imports = true

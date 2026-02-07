@@ -1,0 +1,1 @@
+"""SpeakSense backend application package."""
