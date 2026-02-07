@@ -39,6 +39,25 @@ class Settings(BaseSettings):
     llm_default_model: str = Field(default="gpt-4o-mini", alias="LLM_DEFAULT_MODEL")
     llm_timeout_ms: int = Field(default=30000, alias="LLM_TIMEOUT_MS")
     llm_max_retries: int = Field(default=1, alias="LLM_MAX_RETRIES")
+    enable_async_jobs: bool = Field(default=False, alias="ENABLE_ASYNC_JOBS")
+    job_queue_name: str = Field(default="default", alias="JOB_QUEUE_NAME")
+    job_timeout_seconds: int = Field(default=300, alias="JOB_TIMEOUT_SECONDS")
+    job_inline_fallback: bool = Field(default=True, alias="JOB_INLINE_FALLBACK")
+    jwt_secret: str = Field(
+        default="dev-insecure-change-me",
+        alias="JWT_SECRET",
+    )
+    jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
+    jwt_expires_minutes: int = Field(default=120, alias="JWT_EXPIRES_MINUTES")
+    dev_admin_username: str = Field(
+        default="dev_admin",
+        alias="DEV_ADMIN_USERNAME",
+    )
+    dev_admin_password: str = Field(
+        default="dev_admin_123456",
+        alias="DEV_ADMIN_PASSWORD",
+    )
+    dev_admin_role: str = Field(default="admin", alias="DEV_ADMIN_ROLE")
 
 
 @lru_cache(maxsize=1)

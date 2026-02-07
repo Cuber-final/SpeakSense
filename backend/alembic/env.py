@@ -6,7 +6,7 @@ from logging.config import fileConfig
 
 from backend.app.core.settings import get_settings
 from backend.app.db.base import Base
-from backend.app.models import attempt, board, wordbook
+from backend.app.models import attempt, board, evaluation, user, wordbook
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
@@ -17,7 +17,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 
-_ = (attempt, board, wordbook)
+_ = (attempt, board, evaluation, user, wordbook)
 config.set_main_option("sqlalchemy.url", get_settings().database_url)
 
 target_metadata = Base.metadata

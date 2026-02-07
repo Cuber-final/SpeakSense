@@ -14,6 +14,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from .api.health import router as health_router
 from .api.v1.router import router as v1_router
 from .core.errors import (
+    handle_auth_service_error,
     handle_http_exception,
     handle_llm_service_error,
     handle_unhandled_exception,
@@ -22,13 +23,16 @@ from .core.errors import (
 from .core.logging import configure_logging
 from .core.request_id import RequestIDMiddleware
 from .core.settings import get_settings
+from .services.auth import AuthServiceError, seed_dev_admin
 from .services.llm.exceptions import LLMServiceError
+from .ws.router import router as ws_router
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """Configure process-wide resources during app lifespan."""
     configure_logging()
+    seed_dev_admin()
     yield
 
 
@@ -61,12 +65,17 @@ def create_app() -> FastAPI:
         cast(Any, handle_validation_exception),
     )
     app.add_exception_handler(
+        AuthServiceError,
+        cast(Any, handle_auth_service_error),
+    )
+    app.add_exception_handler(
         LLMServiceError,
         cast(Any, handle_llm_service_error),
     )
     app.add_exception_handler(Exception, handle_unhandled_exception)
 
     app.include_router(health_router)
+    app.include_router(ws_router)
     app.include_router(v1_router, prefix="/v1")
 
     return app

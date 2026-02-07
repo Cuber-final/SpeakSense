@@ -9,6 +9,7 @@ from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
 
 from ...db.session import get_db
+from ...jobs import dispatch_generate_board
 from ...models.board import Board
 from ...schemas.boards import (
     BoardCreateRequest,
@@ -38,16 +39,19 @@ async def create_board(
     payload: BoardCreateRequest,
     db: Session = db_session,
 ) -> BoardResponse:
-    """Create a board from incoming payload."""
+    """Create a board and dispatch async generation."""
     board = Board(
         id=str(uuid4()),
         title=payload.title,
         topic=payload.topic,
         level=payload.level,
-        status="ready",
+        status="generating",
     )
     db.add(board)
     db.commit()
+
+    dispatch_generate_board(board.id)
+
     db.refresh(board)
     return _to_board_response(board)
 

@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from sqlalchemy.orm import Session
 
 from ...db.session import get_db
+from ...jobs import dispatch_evaluate_attempt
 from ...models.attempt import Attempt
 from ...models.board import Board
 from ...schemas.practice import (
@@ -66,7 +67,7 @@ async def submit_text_answer(
     payload: TextAnswerRequest,
     db: Session = db_session,
 ) -> TextAnswerResponse:
-    """Submit a text answer and enforce 40-word hard limit."""
+    """Submit a text answer and dispatch evaluation job."""
     word_count = _word_count(payload.text)
     if word_count > 40:
         raise HTTPException(
@@ -85,6 +86,8 @@ async def submit_text_answer(
     attempt.status = "queued"
     db.add(attempt)
     db.commit()
+
+    dispatch_evaluate_attempt(attempt_id)
 
     return TextAnswerResponse(
         attempt_id=attempt_id,

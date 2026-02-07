@@ -11,6 +11,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import Request
 
 from ..schemas.common import ProblemDetail, ProblemEnvelope
+from ..services.auth.exceptions import AuthServiceError
 from ..services.llm.exceptions import LLMServiceError
 
 logger = logging.getLogger(__name__)
@@ -131,6 +132,26 @@ async def handle_llm_service_error(
     exc: LLMServiceError,
 ) -> JSONResponse:
     """Map LLM service errors into Problem JSON format."""
+    details = exc.details.copy() if exc.details is not None else {}
+
+    request_id = getattr(request.state, "request_id", None)
+    if request_id is not None:
+        details.setdefault("request_id", request_id)
+
+    return _problem_response(
+        status_code=exc.status_code,
+        error_type=exc.error_type,
+        code=exc.code,
+        message=exc.message,
+        details=details or None,
+    )
+
+
+async def handle_auth_service_error(
+    request: Request,
+    exc: AuthServiceError,
+) -> JSONResponse:
+    """Map auth service errors into Problem JSON format."""
     details = exc.details.copy() if exc.details is not None else {}
 
     request_id = getattr(request.state, "request_id", None)

@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ...db.session import get_db
 from ...models.attempt import Attempt
+from ...models.evaluation import Evaluation
 from ...schemas.evaluation import (
-    EvalDimension,
-    EvalMetric,
-    EvalQuestion,
     EvaluationDetailData,
     EvaluationDetailResponse,
     EvaluationStatusResponse,
@@ -30,8 +31,7 @@ async def get_attempt_status(
     if attempt is None:
         raise HTTPException(status_code=404, detail="Attempt not found")
 
-    status = "completed" if attempt.answer_text else attempt.status
-    return EvaluationStatusResponse(attempt_id=attempt_id, status=status)
+    return EvaluationStatusResponse(attempt_id=attempt_id, status=attempt.status)
 
 
 @router.get(
@@ -47,42 +47,28 @@ async def get_attempt_evaluation(
     if attempt is None:
         raise HTTPException(status_code=404, detail="Attempt not found")
 
-    answer = attempt.answer_text or "Can I get a hot latte with oat milk, please?"
-    data = EvaluationDetailData(
-        id=attempt_id,
-        scenario_title="Coffee Shop Ordering",
-        overall_score=3.5,
-        level="Intermediate High",
-        summary=(
-            "Great job! You are clearly understood by native "
-            "speakers in most contexts."
-        ),
-        dimensions=[
-            EvalDimension(label="Naturalness", score=4.5),
-            EvalDimension(label="Richness", score=4.2),
-            EvalDimension(label="Grammar", score=3.8),
-            EvalDimension(label="Relevance", score=4.0),
-        ],
-        metrics=[
-            EvalMetric(key="duration", label="Duration", value="14m 32s"),
-            EvalMetric(key="pace", label="Pace", value="115 wpm"),
-            EvalMetric(key="vocabulary", label="Vocabulary", value="B2 Level"),
-        ],
-        questions=[
-            EvalQuestion(
-                question="How would you order a latte with oat milk?",
-                answer=answer,
-                feedback="Clear request, but phrasing can be more natural.",
-                suggested_answer="Could I get a hot latte with oat milk, please?",
-                audio_url=None,
-                dimensions=[
-                    EvalDimension(label="Relevance", score=4.8),
-                    EvalDimension(label="Naturalness", score=2.5),
-                    EvalDimension(label="Grammar", score=3.8),
-                    EvalDimension(label="Richness", score=3.2),
-                ],
-            )
-        ],
-    )
+    evaluation = db.execute(
+        select(Evaluation).where(Evaluation.attempt_id == attempt_id)
+    ).scalar_one_or_none()
 
+    if evaluation is None:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "Evaluation is not ready",
+                "status": attempt.status,
+            },
+        )
+
+    if evaluation.status != "completed" or evaluation.payload_json is None:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "Evaluation is not ready",
+                "status": evaluation.status,
+            },
+        )
+
+    payload = json.loads(evaluation.payload_json)
+    data = EvaluationDetailData.model_validate(payload)
     return EvaluationDetailResponse(data=data)
