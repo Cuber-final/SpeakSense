@@ -148,6 +148,14 @@ class OpenAICompatibleAdapter:
 
     def _serialize_message(self, message: ChatMessage) -> dict[str, Any]:
         """Serialize internal message format into OpenAI-compatible format."""
+        if all(isinstance(part, ContentText) for part in message.content):
+            text_parts: list[str] = []
+            for part in message.content:
+                if isinstance(part, ContentText):
+                    text_parts.append(part.text)
+            text_content = "".join(text_parts)
+            return {"role": message.role, "content": text_content}
+
         content = [self._serialize_content(part) for part in message.content]
         return {"role": message.role, "content": content}
 

@@ -59,7 +59,7 @@ This file defines how agents should work in this repo and the step‑by‑step p
   - Prefer Pydantic models for serialization; avoid ad‑hoc deeply nested dicts.
 
 - Dependencies & tooling
-  - Use `requirements.txt` for dependencies (optionally adopt `pip-tools` later); Poetry not used for now.
+  - Use Poetry (`backend/pyproject.toml`) as the primary dependency manager; keep `requirements.txt` as compatibility mirror when needed.
   - Unified checks: `ruff` (E/F/I/UP/ASYNC/B/C4/SIM), `black`, `isort`, `mypy`.
 
 - Testing
@@ -102,101 +102,15 @@ This file defines how agents should work in this repo and the step‑by‑step p
 
 ---
 
-## Step‑By‑Step Development Plan (Todo)
+## Step‑By‑Step Development Plan
 
-Status keys: [ ] pending  [x] done  [~] in progress
+为避免多处进度冲突，状态维护统一收敛到文档目录：
 
-### M0 — Project Setup
+- 里程碑总览（唯一真相源）：`docs/project-roadmap.md`
+- 后端详细进度：`docs/backend-development-progress.md`
+- Flutter 详细进度：`docs/flutter-development-progress.md`
 
-- [ ] Create base repo structure (`/backend`, `/frontend`, `/infra`).
-- [ ] Add Python toolchain (`ruff`, `black`, `isort`, `mypy`, `pytest`).
-- [ ] Add Makefile tasks: `dev`, `test`, `fmt`, `migrate`.
-- [ ] Docker Compose: `api`, `worker`, `redis`, `db`, `rq-dashboard`.
-- [ ] Logging scaffold with `X-Request-Id` middleware.
-- [ ] Problem JSON error handler and global exception mapping.
-- Acceptance: `docker compose up` exposes `GET /healthz` 200 and OpenAPI shell.
-
-### M1 — Backend Core
-
-- [ ] Auth: JWT login (`POST /v1/auth/login`), `GET /v1/auth/me`. Seed admin (dev auto-seed).
-- [ ] Boards: `POST /v1/boards`, list, get questions, delete.
-- [ ] Jobs: `jobs.generate_board(board_id)` with adapter (dummy LLM); mark board ready.
-- [ ] Practice: attempts + answers (text). Word limit validation (≤ 40 words).
-- [ ] Evaluation: `jobs.evaluate_attempt(attempt_id)`; JSON result; `GET /attempts/{id}/evaluation` and `/status`.
-- [ ] Wordbook: add/list with provenance.
-- [ ] Rate limiting + POST idempotency middleware.
-- [ ] OpenAPI generation (Makefile target) and ready for CI validation.
-- Acceptance: curl flows in CLAUDE.md succeed; RQ dashboard shows jobs; WS event fires once.
-
-### M2 — Voice & Realtime
-
-- [ ] ASR wrapper (faster‑whisper) with 8‑bit quantization option.
-- [ ] `POST /answers/voice` (multipart upload) → transcript preview; enforce 90s cap.
-- [ ] Hard guard `ASR_DELETE_AUDIO_AFTER=true` (refuse to run if false).
-- [ ] WebSocket `/ws/events` push `evaluation.completed`.
-- Acceptance: audio upload round‑trip; source audio deleted; WS banner triggered in frontend shell.
-
-### M3 — Flutter Shell & UX
-
-- [ ] Project bootstrap (Material 3, light/dark themes, tokens).
-- [ ] Navigation: bottom tabs (4) + evaluation secondary route.
-- [ ] Mock toggle (Debug menu) and dio/ws scaffolding.
-- [ ] Offline drafts for text answers + 35-word soft hint.
-- [ ] Screens: Boards list/detail, Practice (text/voice), Evaluation, Wordbook.
-  - [ ] Boards — list grid + skeleton（Mock 数据）。
-  - [ ] Boards — detail（问题与 variants 展示 + CTA 开始练习）。
-  - [ ] Practice — 文本输入与草稿；35 词软上限提示。
-  - [ ] Practice — 语音录制（已实现）+ 上传调用 `/v1/answers/voice`（待接入）+ ASR 预览编辑。
-  - [ ] Evaluation — 汇总页 + 详情页骨架；Radar 图组件。
-  - [ ] Evaluation — 真实数据绑定，逐题反馈与建议交互。
-  - [ ] Wordbook — 列表占位（待数据模型与增删改同步）。
-- [ ] Microcopy（中文 UI）与排版细化；空状态与加载骨架完善。
-- [ ] Realtime 前端：订阅 `/ws/events` 并显示"评估完成" Banner + 导航跳转。
-- [ ] Acceptance: demo 视频（Mock 全流转 + 实 API 切换）。
-
-### M3 — Forui UI Migration (New)
-
-- 目标：在保持可运行和可回退的前提下，用 forui 替换现有 Material 组件，统一主题与组件风格；全程支持 Web 调试。
-- 策略：先"接入 forui + 主题共存"，再"逐屏替换组件"，最后"覆盖 Overlay 与导航细节"。
-
-- [ ] Step 1: 接入 forui 与主题共存
-  - `forui` 依赖就绪；入口以 `FTheme` 包裹，并通过 `toApproximateMaterialTheme()` 与 Material 共存。
-  - 调试菜单新增 "Forui UI：开/关"。
-  - Web 启动通过。
-
-- [ ] Step 2: 设计令牌映射到 `FThemeData`
-  - `buildForuiTheme()` 保留默认风格并附加品牌色扩展，确保主题共存。
-
-- [ ] Step 3: 屏级替换（第一批：Boards + Practice 文本）
-  - Boards：列表卡片与详情页使用 `FCard`、`FBadge`、`FItemGroup`。
-  - Practice：文本输入换成 `FTextField`；按钮和反馈全部用 Forui Toast/Dialog。
-
-- [ ] Step 4: Practice 语音页替换与弹层（`FToast`/`FDialog`）。
-- [ ] Step 5: Evaluation 交互细化（卡片/反馈等 → Forui；Radar 图保留 fl_chart）。
-- [ ] Step 6: Overlay、导航与反馈统一（底部导航改 `FBottomNavigationBar`；全局 Toast/Dialog 使用 Forui）。
-- [ ] Step 7: QA（Web 构建通过；本地 Chrome 运行；状态样式保持 Forui 默认，后续按需细化）。
-- [ ] Step 8: 文档与回退：
-  - 不再支持旧 Material 外观切换，应用固定使用 Forui。
-  - 组件映射（示例）：
-    - 按钮：FilledButton → FButton；输入：TextField → FTextField；卡片：Card → FCard；
-    - 列表项：ListTile → FItem/FItemGroup；提示：SnackBar → showFToast；对话框：AlertDialog → showFDialog；
-    - 底部导航：NavigationBar → FBottomNavigationBar。
-  - 回退方案：如需临时降级，保持 Forui 主题转 Material 的近似映射（已保留），但默认不再暴露切换入口。
-
-### M4 — Hardening & Ops
-
-- [ ] Security headers (CSP, HSTS, Referrer‑Policy) via ASGI middleware.
-- [ ] Observability: structured error logs, counters, `/readyz` checks.
-- [ ] Provider failover + timeout/circuit breaker; secondary model fallback.
-- [ ] Load test: 100 concurrent users; non‑LLM P95 < 300ms.
-- [ ] CI/CD: lint, type, tests, build images, migrations auto‑run；`dev` branch runs full checks; release PR `dev → main` gates on green.
-
-### M5 — Nice‑To‑Have (Post‑MVP)
-
-- [ ] pgvector for semantic dedupe/search.
-- [ ] TTS playback (edge‑tts/ElevenLabs/XTTS) for suggestions.
-- [ ] Analytics toggle (self‑hosted PostHog), off by default.
-- [ ] Multi‑provider AB testing and cost tracking.
+本文件保留“开发约束、质量标准、命令规范”作为执行上下文，不再承载日常打勾式进度状态。
 
 ---
 
@@ -231,13 +145,13 @@ Ping the maintainer for clarifications on design tokens, env secrets, or provide
 
 - Create env (pyenv, per Runbook)
   - `pyenv virtualenv 3.11.11 esc_dev && pyenv activate esc_dev`
-  - Install deps: `pip install -r backend/requirements.txt`
+  - Install deps: `cd backend && poetry install`
   - Optional: set local env for this repo `pyenv local esc_dev`
-  - Upgrade tooling: `python -m pip install --upgrade pip wheel setuptools`
+  - Optional lock refresh: `cd backend && poetry lock`
 
 - Optional (without pyenv): `python3.11 -m venv .venv && source .venv/bin/activate`
-  - Then: `pip install -r backend/requirements.txt`
-  - Optional dev tools: `pip install ruff black isort mypy pytest pytest-cov`
+  - Then: `cd backend && poetry install`
+  - Optional shell entry: `cd backend && poetry shell`
 
 - Run API locally (without Docker)
   - `make api`  # alias for `uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000`

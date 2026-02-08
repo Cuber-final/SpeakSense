@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
+from sqlalchemy import update
+
+from backend.app.db.session import SessionLocal
+from backend.app.models.wordbook import WordbookEntry
 
 
 def test_board_attempt_evaluation_flow(client: TestClient) -> None:
@@ -34,6 +38,79 @@ def test_board_attempt_evaluation_flow(client: TestClient) -> None:
     data = detail_response.json()["data"]
     assert data["id"] == attempt_id
     assert isinstance(data["dimensions"], list)
+
+
+def test_board_questions_ready_and_persisted(client: TestClient) -> None:
+    """Generated board questions should be persisted and returned from API."""
+    create_board = client.post(
+        "/v1/boards",
+        json={"title": "Hotel Check-in", "topic": "Travel", "level": "B1"},
+    )
+    assert create_board.status_code == 201
+    board_id = create_board.json()["id"]
+    assert create_board.json()["status"] == "ready"
+
+    questions_response = client.get(f"/v1/boards/{board_id}/questions")
+    assert questions_response.status_code == 200
+    questions = questions_response.json()["questions"]
+    variants = [item["variant"] for item in questions]
+    assert variants == ["core", "follow_up", "role_play", "reflection"]
+    assert all(item["prompt"] for item in questions)
+
+
+def test_wordbook_provenance_round_trip(client: TestClient) -> None:
+    """Wordbook API should accept and return provenance metadata."""
+    payload = {
+        "word": "negotiate",
+        "definition": "to discuss and reach an agreement",
+        "level": "B2",
+        "source": "evaluation",
+        "provenance": {
+            "attempt_id": "attempt-123",
+            "evaluation_id": "evaluation-123",
+            "board_id": "board-123",
+            "question_id": "question-123",
+            "note": "Extracted from feedback",
+        },
+    }
+
+    create_word = client.post("/v1/wordbook", json=payload)
+    assert create_word.status_code == 201
+    body = create_word.json()
+    assert body["word"] == "negotiate"
+    assert body["provenance"]["attempt_id"] == "attempt-123"
+
+    list_words = client.get("/v1/wordbook")
+    assert list_words.status_code == 200
+    assert list_words.json()[0]["provenance"]["question_id"] == "question-123"
+
+
+def test_wordbook_list_tolerates_invalid_provenance_json(client: TestClient) -> None:
+    """Wordbook list should not fail when provenance payload in DB is invalid."""
+    create_word = client.post(
+        "/v1/wordbook",
+        json={
+            "word": "clarify",
+            "definition": "to make something easier to understand",
+            "level": "B1",
+            "source": "evaluation",
+        },
+    )
+    assert create_word.status_code == 201
+    word_id = create_word.json()["id"]
+
+    with SessionLocal() as session:
+        session.execute(
+            update(WordbookEntry)
+            .where(WordbookEntry.id == word_id)
+            .values(provenance_json="{invalid_json")
+        )
+        session.commit()
+
+    list_words = client.get("/v1/wordbook")
+    assert list_words.status_code == 200
+    item = next(entry for entry in list_words.json() if entry["id"] == word_id)
+    assert item["provenance"] is None
 
 
 def test_text_word_limit_validation(client: TestClient) -> None:

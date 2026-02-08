@@ -20,7 +20,9 @@ from .core.errors import (
     handle_unhandled_exception,
     handle_validation_exception,
 )
+from .core.idempotency import IdempotencyMiddleware
 from .core.logging import configure_logging
+from .core.rate_limit import RateLimitMiddleware
 from .core.request_id import RequestIDMiddleware
 from .core.settings import get_settings
 from .services.auth import AuthServiceError, seed_dev_admin
@@ -47,6 +49,8 @@ def create_app() -> FastAPI:
     )
 
     app.add_middleware(RequestIDMiddleware)
+    app.add_middleware(RateLimitMiddleware)
+    app.add_middleware(IdempotencyMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_allow_origins,

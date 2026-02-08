@@ -17,3 +17,4 @@ class WordbookEntry(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     definition: Mapped[str] = mapped_column(Text, nullable=False)
     level: Mapped[str] = mapped_column(String(32), nullable=False)
     source: Mapped[str] = mapped_column(String(64), nullable=False)
+    provenance_json: Mapped[str | None] = mapped_column(Text, nullable=True)
