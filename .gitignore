@@ -15,6 +15,7 @@ build/
 # Env
 .env
 backend/.env
+backend/.venv/
 
 # Mac
 .DS_Store

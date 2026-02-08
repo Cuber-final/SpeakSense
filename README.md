@@ -51,16 +51,15 @@ flutter doctor
 #### 后端开发环境
 
 ```bash
-# 创建虚拟环境
-python3.11 -m venv .venv
-source .venv/bin/activate
+# 进入后端目录
+cd backend
 
-# 安装依赖
-pip install -r backend/requirements.txt
+# 使用 Poetry 安装依赖（含 dev）
+poetry install
 
 # 复制环境变量配置
-cp backend/.env.example backend/.env
-# 编辑 backend/.env 设置必要的环境变量
+cp .env.example .env
+# 编辑 .env 设置必要的环境变量
 ```
 
 ### 后端开发
@@ -129,7 +128,9 @@ speaksense/
 │   │   ├── ws/           # WebSocket 事件
 │   │   └── core/         # 核心配置（settings, security, logging, errors）
 │   ├── tests/            # 测试文件
-│   ├── requirements.txt   # Python 依赖
+│   ├── pyproject.toml    # Poetry 依赖与工具配置（主）
+│   ├── requirements.txt  # 运行依赖镜像（由 pyproject 同步）
+│   ├── requirements-dev.txt # 开发依赖镜像（由 pyproject 同步）
 │   └── alembic/         # 数据库迁移
 ├── frontend/             # Flutter 前端（待创建）
 │   ├── lib/
