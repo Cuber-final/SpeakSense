@@ -12,6 +12,7 @@ from ..db.session import SessionLocal
 from ..models.attempt import Attempt
 from ..models.board import Board
 from ..models.evaluation import Evaluation
+from ..services.boards import build_board_questions
 from ..services.evaluation_builder import build_evaluation_payload
 from ..ws import publish_evaluation_completed
 
@@ -30,6 +31,13 @@ def generate_board(board_id: str) -> None:
             )
             return
 
+        questions = build_board_questions(
+            board_id=board.id,
+            title=board.title,
+            topic=board.topic,
+            level=board.level,
+        )
+        board.questions_json = json.dumps(questions)
         board.status = "ready"
         session.add(board)
         session.commit()

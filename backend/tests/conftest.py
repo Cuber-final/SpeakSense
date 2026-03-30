@@ -10,7 +10,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 TEST_DB_PATH = Path("/tmp/speaksense_backend_test.db")
-os.environ["DATABASE_URL"] = f"sqlite+pysqlite:///{TEST_DB_PATH}"
+DEFAULT_SQLITE_URL = f"sqlite+pysqlite:///{TEST_DB_PATH}"
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", DEFAULT_SQLITE_URL)
+os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 
 from backend.app.db.base import Base  # noqa: E402
 from backend.app.db.session import engine  # noqa: E402

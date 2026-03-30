@@ -6,6 +6,7 @@
 
 | 文档 | 说明 | 最后更新 |
 |------|------|----------|
+| [项目路线图](project-roadmap.md) | 项目里程碑状态唯一总览（source of truth） | 2026-02-09 |
 | [UI 原型设计规范](UI-Prototype-Design-Spec.md) | UI/UX 设计系统、页面布局、交互规范 | 2025-02-03 |
 | [前端开发细则](frontend-dev-detail.md) | 页面功能、交互流程与实现约束 | 2025-02-04 |
 | [Flutter 开发计划](flutter-development-plan.md) | Flutter 分阶段开发路线与契约草案 | 2026-02-06 |
@@ -14,7 +15,7 @@
 | [Evaluation Detail 字段契约](evaluation-detail-contract.md) | 前后端联调字段最小契约（MVP） | 2026-02-06 |
 | [Flutter Web 外网资源依赖记录](flutter-web-external-resources.md) | Flutter Web 启动依赖的外网 CDN、规避方案与替代路线 | 2026-02-05 |
 | [LLM/VLM 抽象层调研与落地草案](llm-vlm-adapter-research.md) | 后端模型网关设计、能力矩阵与实施顺序 | 2026-02-07 |
-| [Backend 开发进度](backend-development-progress.md) | 后端里程碑完成情况与下一步实施建议 | 2026-02-07 |
+| [Backend 开发进度](backend-development-progress.md) | 后端里程碑完成情况与下一步实施建议（含 ASR provider 网关化） | 2026-02-09 |
 
 ## 📖 文档说明
 
@@ -43,4 +44,4 @@
 
 ---
 
-**最后更新**: 2026-02-07
+**最后更新**: 2026-02-09

@@ -30,10 +30,13 @@ def _build_request() -> GenerateRequest:
 @pytest.mark.asyncio()
 async def test_generate_success() -> None:
     """Adapter should parse text and usage from a success payload."""
+    captured_payload: dict[str, Any] = {}
 
     async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal captured_payload
         assert request.method == "POST"
         assert request.url.path.endswith("/chat/completions")
+        captured_payload = json.loads(request.content.decode("utf-8"))
         body = {
             "model": "mock-model",
             "choices": [
@@ -64,6 +67,7 @@ async def test_generate_success() -> None:
 
     assert response.output_text == "Hi"
     assert response.usage.total_tokens == 5
+    assert captured_payload["messages"][0]["content"] == "hello"
 
 
 @pytest.mark.asyncio()
@@ -178,5 +182,8 @@ async def test_generate_multimodal_base64_to_data_url() -> None:
     await client.aclose()
 
     content = captured_payload["messages"][0]["content"]
+    text_part = content[0]
     image_part = content[1]
+    assert text_part["type"] == "text"
+    assert text_part["text"] == "describe image"
     assert image_part["image_url"]["url"].startswith("data:image/png;base64,AAA")

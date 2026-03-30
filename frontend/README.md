@@ -1,16 +1,29 @@
-# speaksense_app
+# SpeakSense Flutter App
 
-A new Flutter project.
+Flutter 客户端工程（Web / Android / iOS）。
 
-## Getting Started
+## 本地开发
 
-This project is a starting point for a Flutter application.
+```bash
+flutter pub get
+flutter run -d chrome --no-web-resources-cdn
+```
 
-A few resources to get you started if this is your first Flutter project:
+## 常用命令
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+```bash
+flutter analyze
+flutter test -r compact
+dart format .
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 配置说明
+
+- API 基础地址配置：`frontend/lib/app/env.dart`
+- 开发态可通过应用内开发者菜单切换 Mock/API 数据源
+
+## 相关文档
+
+- 项目路线图：`../docs/project-roadmap.md`
+- Flutter 详细进度：`../docs/flutter-development-progress.md`
+- Flutter 开发计划：`../docs/flutter-development-plan.md`

@@ -27,6 +27,20 @@ class SumResponse(BaseModel):
     total: int
 
 
+class LLMSmokeRequest(BaseModel):
+    """LLM smoke request payload."""
+
+    prompt: str = "Say hello in one short sentence."
+
+
+class LLMSmokeResponse(BaseModel):
+    """LLM smoke response payload."""
+
+    provider: str
+    model: str
+    output_text: str
+
+
 class ProblemDetail(BaseModel):
     """Problem JSON error payload."""
 
