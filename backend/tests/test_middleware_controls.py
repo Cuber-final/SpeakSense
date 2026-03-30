@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
-from fastapi.testclient import TestClient
+from typing import Any
 
+from fastapi.testclient import TestClient
+from redis.exceptions import RedisError
+
+import backend.app.core.rate_limit as rate_limit_module
 from backend.app.core.settings import get_settings
 
 
@@ -58,3 +62,62 @@ def test_post_idempotency_rejects_payload_mismatch(client: TestClient) -> None:
     assert first.status_code == 201
     assert second.status_code == 409
     assert second.json()["error"]["code"] == "IDEMPOTENCY_KEY_REUSED"
+
+
+def _raise_redis_error(*_: Any, **__: Any) -> Any:
+    """Raise redis error for strict-mode fallback checks."""
+    raise RedisError("redis unavailable")
+
+
+def test_rate_limit_prod_requires_redis_store(
+    client: TestClient,
+    monkeypatch: Any,
+) -> None:
+    """Prod env should return 503 when rate-limit Redis is unavailable."""
+    settings = get_settings()
+    original_env = settings.app_env
+    settings.app_env = "prod"
+    monkeypatch.setattr(
+        "backend.app.core.rate_limit.Redis.from_url",
+        _raise_redis_error,
+    )
+    try:
+        response = client.get(
+            "/v1/system/ping",
+            headers={"X-Forwarded-For": "203.0.113.20"},
+        )
+    finally:
+        settings.app_env = original_env
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "RATE_LIMIT_STORE_UNAVAILABLE"
+
+
+def test_idempotency_prod_requires_redis_store(
+    client: TestClient,
+    monkeypatch: Any,
+) -> None:
+    """Prod env should return 503 when idempotency Redis is unavailable."""
+    settings = get_settings()
+    original_env = settings.app_env
+    settings.app_env = "prod"
+    monkeypatch.setattr(
+        "backend.app.core.idempotency.Redis.from_url",
+        _raise_redis_error,
+    )
+    monkeypatch.setattr(
+        rate_limit_module.RateLimitMiddleware,
+        "_increment_count",
+        lambda self, key, ttl_seconds: 1,
+    )
+    try:
+        response = client.post(
+            "/v1/boards",
+            json={"title": "Travel", "topic": "Airport", "level": "B1"},
+            headers={"Idempotency-Key": "idem-prod-redis-required"},
+        )
+    finally:
+        settings.app_env = original_env
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "IDEMPOTENCY_STORE_UNAVAILABLE"

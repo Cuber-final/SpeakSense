@@ -1,23 +1,16 @@
-"""ASR transcription service wrapper with mock and faster-whisper backends."""
+"""ASR gateway wrapper with mock/local/API providers."""
 
 from __future__ import annotations
 
 import wave
-from dataclasses import dataclass
 from pathlib import Path
 
 from ...core.settings import get_settings
-
-
-@dataclass(slots=True)
-class ASRServiceError(Exception):
-    """ASR service exception."""
-
-    message: str
-
-    def __str__(self) -> str:
-        """Return error message string."""
-        return self.message
+from .adapter import ASRAdapter
+from .faster_whisper_provider import FasterWhisperASRAdapter
+from .mock_provider import MockASRAdapter
+from .openai_compatible import OpenAICompatibleASRAdapter
+from .types import ASRRequest
 
 
 def detect_wav_duration_seconds(file_path: Path) -> float | None:
@@ -32,35 +25,45 @@ def detect_wav_duration_seconds(file_path: Path) -> float | None:
         return None
 
 
-def transcribe_audio(*, file_path: Path, language: str) -> str:
-    """Transcribe one audio file via configured ASR provider."""
+def _build_adapter() -> ASRAdapter:
+    """Build ASR adapter from runtime settings."""
     settings = get_settings()
     provider = settings.asr_provider.strip().lower()
 
     if provider == "mock":
-        return settings.asr_mock_transcript
+        return MockASRAdapter(transcript=settings.asr_mock_transcript)
 
-    if provider != "faster_whisper":
-        raise ASRServiceError(f"Unsupported ASR provider: {settings.asr_provider}")
-
-    try:
-        from faster_whisper import WhisperModel  # type: ignore[import-not-found]
-    except ImportError as exc:
-        raise ASRServiceError(
-            "faster_whisper is not installed but ASR_PROVIDER=faster_whisper",
-        ) from exc
-
-    try:
-        model = WhisperModel(
-            settings.asr_whisper_model_size,
+    if provider == "faster_whisper":
+        return FasterWhisperASRAdapter(
+            model_size=settings.asr_whisper_model_size,
             compute_type=settings.asr_whisper_compute_type,
         )
-        segments, _ = model.transcribe(str(file_path), language=language)
-    except Exception as exc:  # pragma: no cover - provider/runtime variability
-        raise ASRServiceError(f"ASR provider failed: {exc}") from exc
 
-    text_parts = [segment.text.strip() for segment in segments if segment.text.strip()]
-    transcript = " ".join(text_parts).strip()
-    if not transcript:
-        raise ASRServiceError("ASR transcript is empty")
-    return transcript
+    return OpenAICompatibleASRAdapter(
+        provider_name=settings.asr_provider,
+        base_url=settings.asr_base_url,
+        api_key=settings.asr_api_key,
+        model=settings.asr_model,
+        timeout_ms=settings.asr_timeout_ms,
+        max_retries=settings.asr_max_retries,
+    )
+
+
+async def transcribe_audio(
+    *,
+    file_path: Path,
+    language: str,
+    filename: str,
+    content_type: str | None = None,
+) -> str:
+    """Transcribe one audio file via configured ASR provider."""
+    adapter = _build_adapter()
+    response = await adapter.transcribe(
+        ASRRequest(
+            file_path=file_path,
+            language=language,
+            filename=filename,
+            content_type=content_type,
+        )
+    )
+    return response.transcript

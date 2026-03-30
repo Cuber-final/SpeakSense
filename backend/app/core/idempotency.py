@@ -95,6 +95,10 @@ class _InMemoryLockStore:
 _memory_lock_store = _InMemoryLockStore()
 
 
+class _IdempotencyStoreUnavailable(Exception):
+    """Raised when idempotency store is unavailable in strict mode."""
+
+
 def _problem_response(
     *,
     status_code: int,
@@ -154,7 +158,15 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
             idempotency_key=idem_key.strip(),
         )
 
-        cached = self._get(cache_key)
+        try:
+            cached = self._get(cache_key)
+        except _IdempotencyStoreUnavailable:
+            return _problem_response(
+                status_code=503,
+                code="IDEMPOTENCY_STORE_UNAVAILABLE",
+                message="Idempotency store unavailable",
+            )
+
         if cached is not None:
             if cached.request_hash != request_hash:
                 return _problem_response(
@@ -171,13 +183,29 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
         lock_key = f"{cache_key}:lock"
         lock_owner = uuid4().hex
         lock_ttl = max(5, self._settings.idempotency_ttl_seconds // 10)
-        acquired = self._acquire_lock(
-            key=lock_key,
-            owner=lock_owner,
-            ttl_seconds=lock_ttl,
-        )
+        try:
+            acquired = self._acquire_lock(
+                key=lock_key,
+                owner=lock_owner,
+                ttl_seconds=lock_ttl,
+            )
+        except _IdempotencyStoreUnavailable:
+            return _problem_response(
+                status_code=503,
+                code="IDEMPOTENCY_STORE_UNAVAILABLE",
+                message="Idempotency store unavailable",
+            )
+
         if not acquired:
-            cached = self._get(cache_key)
+            try:
+                cached = self._get(cache_key)
+            except _IdempotencyStoreUnavailable:
+                return _problem_response(
+                    status_code=503,
+                    code="IDEMPOTENCY_STORE_UNAVAILABLE",
+                    message="Idempotency store unavailable",
+                )
+
             if cached is not None:
                 if cached.request_hash != request_hash:
                     return _problem_response(
@@ -315,7 +343,9 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
                 expires_at=float(payload["expires_at"]),
             )
         except (RedisError, KeyError, ValueError, json.JSONDecodeError):
-            return _memory_store.get(key)
+            if self._settings.allow_in_memory_controls_fallback():
+                return _memory_store.get(key)
+            raise _IdempotencyStoreUnavailable from None
 
     def _set(self, *, key: str, value: CachedResponse) -> None:
         """Store idempotency response in Redis or memory fallback."""
@@ -339,7 +369,8 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
             )
             return
         except RedisError:
-            _memory_store.set(key=key, value=value)
+            if self._settings.allow_in_memory_controls_fallback():
+                _memory_store.set(key=key, value=value)
 
     def _acquire_lock(self, *, key: str, owner: str, ttl_seconds: int) -> bool:
         """Acquire distributed lock by key to avoid duplicate in-flight POST."""
@@ -351,11 +382,13 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
             acquired = redis_client.set(key, owner, ex=ttl_seconds, nx=True)
             return bool(acquired)
         except RedisError:
-            return _memory_lock_store.try_acquire(
-                key=key,
-                owner=owner,
-                ttl_seconds=ttl_seconds,
-            )
+            if self._settings.allow_in_memory_controls_fallback():
+                return _memory_lock_store.try_acquire(
+                    key=key,
+                    owner=owner,
+                    ttl_seconds=ttl_seconds,
+                )
+            raise _IdempotencyStoreUnavailable from None
 
     def _release_lock(self, *, key: str, owner: str) -> None:
         """Release lock key only if lock owner matches."""
@@ -371,4 +404,5 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
             redis_client.eval(script, 1, key, owner)
             return
         except RedisError:
-            _memory_lock_store.release(key=key, owner=owner)
+            if self._settings.allow_in_memory_controls_fallback():
+                _memory_lock_store.release(key=key, owner=owner)

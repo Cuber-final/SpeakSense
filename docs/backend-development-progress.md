@@ -1,6 +1,6 @@
 # Backend 开发进度
 
-最后更新: 2026-02-08  
+最后更新: 2026-02-09  
 项目: SpeakSense API (FastAPI)
 
 ---
@@ -114,6 +114,20 @@
 - [x] 联通验证：`/v1/system/llm/smoke` 真实请求上游并返回 200
 - [x] 新增 `make llm-smoke` 便捷联调命令（支持 `API_BASE`、`PROMPT` 覆盖）
 
+### B15 - Redis-only 生产收口（限流与幂等）
+- [x] `APP_ENV=prod` 下禁用内存回退，限流与幂等强依赖 Redis
+- [x] 限流存储不可用时返回 `503 RATE_LIMIT_STORE_UNAVAILABLE`
+- [x] 幂等存储不可用时返回 `503 IDEMPOTENCY_STORE_UNAVAILABLE`
+- [x] 补测试覆盖：生产模式 Redis 不可用路径（429/409 之外的 503 行为）
+- [x] `.env.example` 增加生产模式说明（Redis-only 控制链路）
+
+### B16 - ASR provider 网关化（M2 收口前）
+- [x] ASR 重构为 provider 网关：`mock` / `faster_whisper` / `openai_compatible`
+- [x] 新增 API provider ASR 配置项（`ASR_BASE_URL`、`ASR_API_KEY`、`ASR_MODEL`）
+- [x] `/v1/answers/voice` 路由解耦至统一 ASR 网关
+- [x] 增加音频 MIME -> 扩展名规范化（提升浏览器上传兼容）
+- [x] 新增测试：`OpenAICompatibleASRAdapter` 成功与重试路径
+
 ---
 
 ## 目录落地
@@ -136,6 +150,10 @@
 - [x] `PYENV_VERSION=esc_dev poetry run ruff check app tests`（backend）
 - [x] `PYENV_VERSION=esc_dev poetry run mypy app tests`（backend）
 - [x] `PYENV_VERSION=esc_dev poetry run pytest -q tests`（backend）
+- [x] `cd backend && poetry run ruff check app/services/asr app/api/v1/practice.py tests/test_asr_openai_compatible.py`
+- [x] `cd backend && poetry run pytest -q tests/test_voice_asr.py tests/test_asr_openai_compatible.py`
+- [x] `cd backend && poetry run mypy app/services/asr app/api/v1/practice.py`
+- [x] `cd backend && poetry run pytest -q tests/test_middleware_controls.py`
 - [x] `DATABASE_URL=sqlite+pysqlite:////tmp/speaksense_migrate_auth.db PYENV_VERSION=esc_dev pyenv exec alembic -c backend/alembic.ini upgrade head`
 - [x] `DATABASE_URL=sqlite+pysqlite:////tmp/speaksense_migrate_jobs.db PYENV_VERSION=esc_dev pyenv exec alembic -c backend/alembic.ini upgrade head`
 
@@ -146,7 +164,7 @@
 
 ## 下一步建议
 
-1. 将真实 provider 联调扩展到多后端矩阵（OpenAI-compatible、vLLM、Ollama）并补超时/重试回归测试。
-2. 完成 `Idempotency-Key` 和限流状态的 Redis-only 生产模式收口（关闭内存回退）。
-3. 补 `POST /answers/voice` 的真实 `faster-whisper` e2e 与大文件边界测试。
-4. 为 boards/questions 增加版本号与再生成机制（支持刷新题板与差异追踪）。
+1. 打通真实 ASR API provider 联调（基于 `.env` 的 `ASR_*` 参数）并补 e2e 用例。
+2. 规划并实现语音分片上传协议（WebSocket + 会话聚合）以支持准实时体验。
+3. 为 boards/questions 增加版本号与再生成机制（支持刷新题板与差异追踪）。
+4. 增强观测性：补充关键指标（队列积压、评估耗时、ASR 失败率）与 `/readyz` 依赖细化。

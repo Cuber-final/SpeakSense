@@ -55,6 +55,15 @@ cd ..
 make api
 ```
 
+### ASR Provider 快速切换
+
+- 默认使用 `ASR_PROVIDER=mock`（无需额外配置，适合前期联调）
+- 本地模型可用 `ASR_PROVIDER=faster_whisper`（需安装 `faster-whisper` 及模型依赖）
+- API Provider 可用 `ASR_PROVIDER=openai_compatible`，并配置:
+  - `ASR_BASE_URL`
+  - `ASR_API_KEY`
+  - `ASR_MODEL`
+
 ### 前端启动
 
 ```bash

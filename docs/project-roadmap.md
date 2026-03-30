@@ -1,6 +1,6 @@
 # SpeakSense 项目路线图（Roadmap）
 
-最后更新: 2026-02-08  
+最后更新: 2026-02-09  
 范围: MVP 开发阶段（`dev` 分支）
 
 ---
@@ -23,7 +23,7 @@
 |---|---|---|
 | M0 项目初始化 | done | 基础工程、工具链、健康检查与错误处理框架已可运行 |
 | M1 后端核心 | in_progress | 认证、boards/practice/evaluation/wordbook 主链路已落地，正在做联调收口 |
-| M2 语音与实时 | in_progress | 语音上传/ASR 删除策略与 WS 事件已具备，待补真实 e2e 边界验证 |
+| M2 语音与实时 | in_progress | ASR 已完成 provider 网关化（mock/local/api），待做真实联调与分片实时上传 |
 | M3 Flutter Shell 与 UX | in_progress | 主页面、Mock/API 切换、Forui 迁移、Radar 图与语音交互已完成大部分 |
 | M4 硬化与运维 | pending | 安全头、观测性、性能压测、CI/CD 强化待执行 |
 | M5 增强能力 | pending | pgvector、TTS、AB 测试与成本追踪（MVP 后） |
@@ -40,10 +40,10 @@
 
 ## 下一步优先级（执行顺序）
 
-1. LLM provider 矩阵联调（OpenAI-compatible / vLLM / Ollama）与超时、重试回归测试。
-2. `Idempotency-Key` 与限流收口为 Redis-only 生产模式（关闭内存回退）。
-3. `POST /v1/answers/voice` 的真实 `faster-whisper` e2e 与大文件边界测试。
-4. boards/questions 引入版本号与再生成机制（支持刷新与差异追踪）。
+1. 打通 `POST /v1/answers/voice` 的真实 ASR API provider 联调与 e2e 回归。
+2. 设计并落地语音分片上传协议（WebSocket + 会话聚合 + 失败重传）。
+3. boards/questions 引入版本号与再生成机制（支持刷新与差异追踪）。
+4. 增强观测性与就绪检查（关键指标与 `/readyz` 依赖细化）。
 
 ---
 

@@ -64,6 +64,10 @@ class _InMemoryRateStore:
 _memory_store = _InMemoryRateStore()
 
 
+class _RateLimitStoreUnavailable(Exception):
+    """Raised when rate-limit backing store is unavailable in strict mode."""
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Apply per-window request limits using Redis with memory fallback."""
 
@@ -87,7 +91,20 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         bucket = int(time.time() // window)
         key = f"rate:{ip_key}:{user_key}:{bucket}"
 
-        count = self._increment_count(key=key, ttl_seconds=window + 2)
+        try:
+            count = self._increment_count(key=key, ttl_seconds=window + 2)
+        except _RateLimitStoreUnavailable:
+            request_id = getattr(request.state, "request_id", None)
+            unavailable_details: dict[str, Any] = {"store": "redis"}
+            if request_id is not None:
+                unavailable_details["request_id"] = request_id
+            return _build_problem_response(
+                status_code=503,
+                code="RATE_LIMIT_STORE_UNAVAILABLE",
+                message="Rate limit store unavailable",
+                details=unavailable_details,
+            )
+
         if count > self._settings.rate_limit_requests:
             request_id = getattr(request.state, "request_id", None)
             details: dict[str, Any] = {
@@ -119,7 +136,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 result = pipeline.execute()
             return int(result[0])
         except RedisError:
-            return _memory_store.increment(key=key, ttl_seconds=ttl_seconds)
+            if self._settings.allow_in_memory_controls_fallback():
+                return _memory_store.increment(key=key, ttl_seconds=ttl_seconds)
+            raise _RateLimitStoreUnavailable from None
 
     def _resolve_ip(self, request: Request) -> str:
         """Resolve best-effort client IP from proxy and socket info."""

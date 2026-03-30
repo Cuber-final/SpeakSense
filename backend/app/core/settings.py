@@ -80,6 +80,14 @@ class Settings(BaseSettings):
         default="int8",
         alias="ASR_WHISPER_COMPUTE_TYPE",
     )
+    asr_base_url: str = Field(
+        default="https://api.openai.com/v1",
+        alias="ASR_BASE_URL",
+    )
+    asr_api_key: str = Field(default="", alias="ASR_API_KEY")
+    asr_model: str = Field(default="whisper-1", alias="ASR_MODEL")
+    asr_timeout_ms: int = Field(default=30000, alias="ASR_TIMEOUT_MS")
+    asr_max_retries: int = Field(default=1, alias="ASR_MAX_RETRIES")
     jwt_secret: str = Field(
         default="dev-insecure-change-me",
         alias="JWT_SECRET",
@@ -95,6 +103,14 @@ class Settings(BaseSettings):
         alias="DEV_ADMIN_PASSWORD",
     )
     dev_admin_role: str = Field(default="admin", alias="DEV_ADMIN_ROLE")
+
+    def is_production_env(self) -> bool:
+        """Return True when runtime environment should enforce prod safety."""
+        return self.app_env.lower() in {"prod", "production"}
+
+    def allow_in_memory_controls_fallback(self) -> bool:
+        """Return True when middleware may fallback to in-memory control state."""
+        return not self.is_production_env()
 
 
 @lru_cache(maxsize=1)

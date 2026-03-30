@@ -29,6 +29,7 @@ from ...schemas.practice import (
 from ...services.asr import (
     ASRServiceError,
     detect_wav_duration_seconds,
+    resolve_audio_suffix,
     transcribe_audio,
 )
 
@@ -42,8 +43,11 @@ def _word_count(text: str) -> int:
     return len(words)
 
 
-def _extract_voice_payload(content_type: str, body: bytes) -> tuple[bytes, str, str]:
-    """Parse multipart body and return audio bytes, filename, and language."""
+def _extract_voice_payload(
+    content_type: str,
+    body: bytes,
+) -> tuple[bytes, str, str, str | None]:
+    """Parse multipart body and return audio bytes, filename, language, MIME."""
     if "multipart/form-data" not in content_type:
         raise HTTPException(
             status_code=415,
@@ -59,6 +63,7 @@ def _extract_voice_payload(content_type: str, body: bytes) -> tuple[bytes, str, 
     audio_bytes: bytes | None = None
     filename = ""
     language = "en"
+    audio_content_type: str | None = None
 
     for part in message.iter_parts():
         content_disposition = part.get("Content-Disposition", "")
@@ -74,6 +79,7 @@ def _extract_voice_payload(content_type: str, body: bytes) -> tuple[bytes, str, 
 
         if part_name == "audio":
             filename = part.get_filename() or ""
+            audio_content_type = part.get_content_type()
             part_payload = part.get_payload(decode=True)
             if isinstance(part_payload, bytes) and part_payload:
                 audio_bytes = part_payload
@@ -84,12 +90,12 @@ def _extract_voice_payload(content_type: str, body: bytes) -> tuple[bytes, str, 
     if not filename:
         raise HTTPException(status_code=400, detail="Audio filename is required")
 
-    return audio_bytes, filename, language
+    return audio_bytes, filename, language, audio_content_type
 
 
 async def _extract_voice_payload_from_form(
     request: Request,
-) -> tuple[bytes, str, str] | None:
+) -> tuple[bytes, str, str, str | None] | None:
     """Parse multipart via Starlette form parser when available."""
     try:
         form = await request.form()
@@ -103,6 +109,7 @@ async def _extract_voice_payload_from_form(
     filename = getattr(audio_part, "filename", "") or ""
     if not filename:
         raise HTTPException(status_code=400, detail="Audio filename is required")
+    audio_content_type = getattr(audio_part, "content_type", None)
 
     read_method = getattr(audio_part, "read", None)
     if not callable(read_method):
@@ -124,7 +131,7 @@ async def _extract_voice_payload_from_form(
     if not language:
         language = "en"
 
-    return payload, filename, language
+    return payload, filename, language, audio_content_type
 
 
 @router.post(
@@ -202,7 +209,7 @@ async def submit_voice_answer(
         content_type = request.headers.get("content-type", "")
         body = await request.body()
         parsed = _extract_voice_payload(content_type, body)
-    audio_bytes, filename, language = parsed
+    audio_bytes, filename, language, audio_content_type = parsed
 
     settings = get_settings()
     if not settings.asr_delete_audio_after:
@@ -211,7 +218,10 @@ async def submit_voice_answer(
             detail={"message": "ASR_DELETE_AUDIO_AFTER must be true"},
         )
 
-    suffix = Path(filename).suffix or ".bin"
+    suffix = resolve_audio_suffix(
+        filename=filename,
+        content_type=audio_content_type,
+    )
     with NamedTemporaryFile(
         prefix="speaksense_asr_",
         suffix=suffix,
@@ -236,9 +246,11 @@ async def submit_voice_answer(
             )
 
         try:
-            transcript_preview = transcribe_audio(
+            transcript_preview = await transcribe_audio(
                 file_path=temp_path,
                 language=language,
+                filename=filename,
+                content_type=audio_content_type,
             )
         except ASRServiceError as exc:
             raise HTTPException(
